@@ -51,6 +51,7 @@ Route::middleware('admin')->group(function (): void {
 
 Route::middleware(['staff', 'throttle:staff-actions'])->group(function (): void {
     Route::get('/staff/orders', [StaffOrderController::class, 'index'])->name('staff.orders');
+    Route::delete('/staff/orders/{order}', [StaffOrderController::class, 'destroy'])->name('staff.orders.delete');
     Route::get('/staff/orders/{order}/receipt', [StaffOrderController::class, 'receipt'])->name('staff.orders.receipt');
     Route::post('/staff/orders/{order}/verify-receipt', [StaffOrderController::class, 'verifyReceipt'])->name('staff.orders.verify-receipt');
     Route::post('/staff/orders/{order}/mark-cash-received', [StaffOrderController::class, 'markCashReceived'])->name('staff.orders.mark-cash-received');

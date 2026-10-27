@@ -23,16 +23,126 @@ function OrderCard({order,onView}:{order:any;onView:()=>void}){
 type CheckoutItem={item:Item;quantity:number};
 
 function CheckoutScreen({items,total,onBack,onOrderPlaced,onSignInRequired}:{items:CheckoutItem[];total:number;onBack:()=>void;onOrderPlaced:()=>void;onSignInRequired:()=>void}){
- const [method,setMethod]=useState<'cash'|'duitnow_qr'>('cash'); const [qrSettings,setQrSettings]=useState<any>(null); const [placed,setPlaced]=useState<any>(null); const [busy,setBusy]=useState(false); const [receipt,setReceipt]=useState<File|null>(null); const [receiptBusy,setReceiptBusy]=useState(false); const [message,setMessage]=useState(''); const [error,setError]=useState(''); const csrf=()=>document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content||'';
- useEffect(()=>{fetch('/api/payment-settings',{headers:{Accept:'application/json'}}).then(r=>r.json()).then(setQrSettings).catch(()=>setQrSettings({configured:false}))},[]);
- useEffect(()=>{if(!placed?.id||method!=='duitnow_qr'||placed.payment_status==='paid')return;let alive=true;let timer=0;const poll=async()=>{try{const response=await fetch(`/api/orders/${placed.id}/payment-status`,{headers:{Accept:'application/json'}});if(!response.ok)return;const status=await response.json();if(!alive)return;if(status.payment_status==='paid'){window.clearInterval(timer);setPlaced((current:any)=>({...current,...status}));setMessage('Payment received automatically. Keep your receipt ready for the store worker.')}}catch{}};poll();timer=window.setInterval(poll,5000);return()=>{alive=false;window.clearInterval(timer)}},[placed?.id,method,placed?.payment_status]);
- const placeOrder=async()=>{setBusy(true);setError('');setMessage('');try{const response=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf()},body:JSON.stringify({payment_method:method,items:items.map(({item,quantity})=>({name:item.name,quantity}))})});const result=await response.json();if(response.status===401){setError(result.message||'Sign in is required for QR payment.');return}if(!response.ok)throw new Error(result.message||'Could not place the order.');setPlaced({...result,id:result.order_id,items,total:result.total});onOrderPlaced();if(method==='cash')setMessage(`Order #${result.order_id} placed. Pay cash when you pick it up.`)}catch(problem){setError(problem instanceof Error?problem.message:'Could not reach the server.')}finally{setBusy(false)}};
- const submitReceipt=async(event:React.FormEvent)=>{event.preventDefault();if(!receipt||!placed?.id)return;setReceiptBusy(true);setError('');setMessage('');const form=new FormData();form.append('receipt',receipt);try{const response=await fetch(`/api/orders/${placed.id}/receipt`,{method:'POST',headers:{Accept:'application/json','X-CSRF-TOKEN':csrf()},body:form});const result=await response.json();if(!response.ok)throw new Error(result.message||result.errors?.receipt?.[0]||'Could not upload receipt.');setPlaced((current:any)=>({...current,receipt_submitted:true,payment_status:result.payment_status}));setMessage(result.message)}catch(problem){setError(problem instanceof Error?problem.message:'Could not upload receipt.')}finally{setReceiptBusy(false)}};
- return <section className="checkout-page"><div className="checkout-header"><button onClick={placed?onBack:onBack} aria-label="Back"><ArrowLeft/></button><h1>{placed?.payment_method==='duitnow_qr'?'QR PAYMENT':placed?'ORDER PLACED':'CHECKOUT'}</h1></div>
-  {placed?.payment_method==='duitnow_qr'?<div className="qr-payment-view"><p className="checkout-intro">Scan the merchant QR with your banking or e-wallet app.</p><div className="amount-due"><small>AMOUNT DUE</small><strong>{money(placed.total)}</strong><span>Malaysian Ringgit (MYR)</span></div>{qrSettings?.qr_code_url?<div className="merchant-qr"><span>SCAN TO PAY · {qrSettings.merchant_name||'NAISE COFFEE'}</span><img src={qrSettings.qr_code_url} alt="Naise merchant DuitNow QR code"/><small>Order reference #{placed.order_id}</small><a className="download-qr" href={qrSettings.qr_code_url} download>Download QR code</a></div>:<div className="qr-not-configured">Merchant QR is not configured yet. Please contact the store.</div>}<div className={`payment-waiting ${placed.payment_status==='paid'?'payment-confirmed':''}`}><i/>{placed.payment_status==='paid'?'Payment confirmed automatically':'Waiting for automatic payment confirmation'}</div><p className="payment-proof-note">There is no “I’ve paid” button. The site checks for a verified payment update automatically. Keep your payment receipt ready for the worker.</p>{!placed.receipt_submitted&&<form className="receipt-upload-form" onSubmit={submitReceipt}><label htmlFor="payment-receipt">Upload payment receipt for the store worker</label><Input id="payment-receipt" type="file" accept="image/png,image/jpeg,image/webp" onChange={event=>setReceipt(event.target.files?.[0]||null)} required/><Button variant="primary" disabled={!receipt||receiptBusy}>{receiptBusy?'UPLOADING…':'SEND RECEIPT'}</Button></form>}{placed.receipt_submitted&&<div className="receipt-submitted-note"><ShieldCheck size={16}/><span>Receipt sent. Keep the original receipt available for pickup.</span></div>}{message&&<p className="checkout-feedback" role="status">{message}</p>}{error&&<p className="checkout-error" role="alert">{error}{error.toLowerCase().includes('sign in')&&<button onClick={onSignInRequired}>SIGN IN</button>}</p>}</div>:placed?<div className="order-placed-card"><span className="placed-check">✓</span><h2>Order #{placed.id}</h2><p>{message}</p><p className="payment-proof-note">Your order is with the store. Pay cash at pickup.</p><Button className="checkout-place-button" onClick={onBack}>BACK TO MENU</Button></div>:<><p className="checkout-label">PAYMENT METHOD</p><div className="payment-methods"><Button variant="ghost" type="button" aria-pressed={method==='cash'} className={`payment-method ${method==='cash'?'active':''}`} onClick={()=>setMethod('cash')}><span className="payment-method-icon"><Wallet size={19}/></span>{method==='cash'&&<b className="method-check">✓</b>}<strong>Cash</strong><small>Pay at the counter on pickup</small></Button><Button variant="ghost" type="button" aria-pressed={method==='duitnow_qr'} disabled={qrSettings?.configured===false} className={`payment-method ${method==='duitnow_qr'?'active':''} ${qrSettings?.configured===false?'unavailable':''}`} onClick={()=>{if(qrSettings?.configured)setMethod('duitnow_qr')}}><span className="payment-method-icon"><QrCode size={19}/></span>{method==='duitnow_qr'&&<b className="method-check">✓</b>}<strong>DuitNow QR</strong><small>{qrSettings?.configured===false?'QR not set up yet':'Scan with a banking or e-wallet app'}</small></Button></div><p className="checkout-label order-summary-label">ORDER SUMMARY</p><div className="checkout-summary">{items.map(({item,quantity})=><div className="checkout-item" key={item.name}>{item.image?<img src={item.image} alt=""/>:<span className="checkout-qty">{quantity}</span>}<div><b>{item.name}</b><small>Regular</small></div><strong>{money(item.price*quantity)}</strong></div>)}</div><div className="checkout-totals"><div><span>Subtotal</span><b>{money(total)}</b></div><div><span>Delivery/Pick-up</span><b>{money(0)}</b></div><div className="grand-total"><strong>Total</strong><strong>{money(total)}</strong></div></div><p className="checkout-store-note"><ShieldCheck size={14}/> Your order goes straight to the store once you place it.</p>{error&&<p className="checkout-error" role="alert">{error}{error.toLowerCase().includes('sign in')&&<button onClick={onSignInRequired}>SIGN IN</button>}</p>}<Button className="checkout-place-button" onClick={placeOrder} disabled={busy||!items.length}>{busy?'PLACING ORDER…':'PLACE ORDER'}<b>{money(total)}</b></Button></>}
+ const [method,setMethod]=useState<'cash'|'duitnow_qr'>('cash');
+ const [qrSettings,setQrSettings]=useState<any>(null);
+ const [placed,setPlaced]=useState<any>(null);
+ const [busy,setBusy]=useState(false);
+ const [receipt,setReceipt]=useState<File|null>(null);
+ const [receiptBusy,setReceiptBusy]=useState(false);
+ const [message,setMessage]=useState('');
+ const [error,setError]=useState('');
+ const [customerName,setCustomerName]=useState('');
+ const [customerPhone,setCustomerPhone]=useState('');
+ const csrf=()=>document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content||'';
+
+ useEffect(()=>{
+  fetch('/api/payment-settings',{headers:{Accept:'application/json'}}).then(r=>r.json()).then(setQrSettings).catch(()=>setQrSettings({configured:false}));
+  fetch('/api/profile',{headers:{Accept:'application/json'}}).then(r=>r.json()).then((result)=>{
+   if(result.authenticated){
+    setCustomerName(current=>current||result.user?.name||'');
+    setCustomerPhone(current=>current||result.user?.whatsapp_number||'');
+   }
+  }).catch(()=>{});
+ },[]);
+
+ useEffect(()=>{
+  if(!placed?.id||method!=='duitnow_qr'||placed.payment_status==='paid')return;
+  let alive=true;
+  let timer=0;
+  const poll=async()=>{
+   try{
+    const response=await fetch(`/api/orders/${placed.id}/payment-status`,{headers:{Accept:'application/json'}});
+    if(!response.ok)return;
+    const status=await response.json();
+    if(!alive)return;
+    if(status.payment_status==='paid'){
+     window.clearInterval(timer);
+     setPlaced((current:any)=>({...current,...status}));
+     setMessage('Payment received. Keep your receipt ready for the store worker.');
+    }
+   }catch{}
+  };
+  poll();
+  timer=window.setInterval(poll,5000);
+  return()=>{alive=false;window.clearInterval(timer)};
+ },[placed?.id,method,placed?.payment_status]);
+
+ const placeOrder=async()=>{
+  setError('');
+  setMessage('');
+  if(!customerName.trim()||!customerPhone.trim()){
+   setError('Enter your name and phone number so the store can identify your order.');
+   return;
+  }
+  setBusy(true);
+  try{
+   const response=await fetch('/api/orders',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf()},
+    body:JSON.stringify({
+     payment_method:method,
+     customer_name:customerName.trim(),
+     customer_phone:customerPhone.trim(),
+     items:items.map(({item,quantity})=>({name:item.name,quantity})),
+    }),
+   });
+   const result=await response.json();
+   if(response.status===401){setError(result.message||'Sign in before choosing QR payment.');return}
+   if(!response.ok)throw new Error(result.errors?.customer_name?.[0]||result.errors?.customer_phone?.[0]||result.message||'Could not place the order.');
+   setPlaced({...result,id:result.order_id,items,total:result.total});
+   onOrderPlaced();
+   if(method==='cash')setMessage(`Order #${result.order_id} placed. Pay cash when you pick it up.`);
+  }catch(problem){setError(problem instanceof Error?problem.message:'Could not reach the server.')}finally{setBusy(false)}
+ };
+
+ const submitReceipt=async(event:React.FormEvent)=>{
+  event.preventDefault();
+  if(!receipt||!placed?.id)return;
+  setReceiptBusy(true);setError('');setMessage('');
+  const form=new FormData();form.append('receipt',receipt);
+  try{
+   const response=await fetch(`/api/orders/${placed.id}/receipt`,{method:'POST',headers:{Accept:'application/json','X-CSRF-TOKEN':csrf()},body:form});
+   const result=await response.json();
+   if(!response.ok)throw new Error(result.message||result.errors?.receipt?.[0]||'Could not upload receipt.');
+   setPlaced((current:any)=>({...current,receipt_submitted:true,payment_status:result.payment_status}));
+   setMessage(result.message);
+  }catch(problem){setError(problem instanceof Error?problem.message:'Could not upload receipt.')}finally{setReceiptBusy(false)}
+ };
+
+ return <section className="checkout-page">
+  <div className="checkout-header"><button onClick={onBack} aria-label="Back"><ArrowLeft/></button><h1>{placed?.payment_method==='duitnow_qr'?'QR PAYMENT':placed?'ORDER PLACED':'CHECKOUT'}</h1></div>
+  {placed?.payment_method==='duitnow_qr'?<div className="qr-payment-view">
+   <p className="checkout-intro">Scan the merchant QR with your banking or e-wallet app.</p>
+   <div className="amount-due"><small>AMOUNT DUE</small><strong>{money(placed.total)}</strong><span>Malaysian Ringgit (MYR)</span></div>
+   {qrSettings?.qr_code_url?<div className="merchant-qr"><span>SCAN TO PAY · {qrSettings.merchant_name||'NAISE COFFEE'}</span><img src={qrSettings.qr_code_url} alt="Naise merchant DuitNow QR code"/><small>Order reference #{placed.order_id}</small><a className="download-qr" href={qrSettings.qr_code_url} download>Download QR code</a></div>:<div className="qr-not-configured">Merchant QR is not configured yet. Please contact the store.</div>}
+   <div className={`payment-waiting ${placed.payment_status==='paid'?'payment-confirmed':''}`}><i/>{placed.payment_status==='paid'?'Payment confirmed':placed.receipt_submitted?'Receipt submitted · waiting for staff review':'Payment pending · upload your receipt for staff review'}</div>
+   <p className="payment-proof-note">A static QR does not send payment notifications to this website. The order stays pending until a connected provider confirms it or store staff verifies your receipt.</p>
+   {!placed.receipt_submitted&&<form className="receipt-upload-form" onSubmit={submitReceipt}><label htmlFor="payment-receipt">Upload payment receipt for the store worker</label><Input id="payment-receipt" type="file" accept="image/png,image/jpeg,image/webp" onChange={event=>setReceipt(event.target.files?.[0]||null)} required/><Button variant="primary" disabled={!receipt||receiptBusy}>{receiptBusy?'UPLOADING…':'SEND RECEIPT'}</Button></form>}
+   {placed.receipt_submitted&&<div className="receipt-submitted-note"><ShieldCheck size={16}/><span>Receipt sent. Keep the original receipt available for pickup.</span></div>}
+   {message&&<p className="checkout-feedback" role="status">{message}</p>}{error&&<p className="checkout-error" role="alert">{error}{error.toLowerCase().includes('sign in')&&<button onClick={onSignInRequired}>SIGN IN</button>}</p>}
+  </div>:placed?<div className="order-placed-card"><span className="placed-check">✓</span><h2>Order #{placed.id}</h2><p>{message}</p><p className="payment-proof-note">Your order is with the store. Pay cash at pickup.</p><Button className="checkout-place-button" onClick={onBack}>BACK TO MENU</Button></div>:<>
+   <p className="checkout-label">CUSTOMER DETAILS</p>
+   <div className="checkout-customer-info">
+    <label htmlFor="checkout-customer-name">Name</label>
+    <Input id="checkout-customer-name" name="customer_name" autoComplete="name" maxLength={120} value={customerName} onChange={event=>setCustomerName(event.target.value)} placeholder="Your name" required/>
+    <label htmlFor="checkout-customer-phone">Phone / WhatsApp</label>
+    <Input id="checkout-customer-phone" name="customer_phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={customerPhone} onChange={event=>setCustomerPhone(event.target.value)} placeholder="e.g. +60 12-345 6789" required/>
+    <small>The store uses these details to identify and update you about this order.</small>
+   </div>
+   <p className="checkout-label payment-method-label">PAYMENT METHOD</p>
+   <div className="payment-methods">
+    <Button variant="ghost" type="button" aria-pressed={method==='cash'} className={`payment-method ${method==='cash'?'active':''}`} onClick={()=>setMethod('cash')}><span className="payment-method-icon"><Wallet size={19}/></span>{method==='cash'&&<b className="method-check">✓</b>}<strong>Cash</strong><small>Pay at the counter on pickup</small></Button>
+    <Button variant="ghost" type="button" aria-pressed={method==='duitnow_qr'} disabled={qrSettings?.configured===false} className={`payment-method ${method==='duitnow_qr'?'active':''} ${qrSettings?.configured===false?'unavailable':''}`} onClick={()=>{if(qrSettings?.configured)setMethod('duitnow_qr')}}><span className="payment-method-icon"><QrCode size={19}/></span>{method==='duitnow_qr'&&<b className="method-check">✓</b>}<strong>DuitNow QR</strong><small>{qrSettings?.configured===false?'QR not set up yet':'Scan with a banking or e-wallet app'}</small></Button>
+   </div>
+   <p className="checkout-label order-summary-label">ORDER SUMMARY</p>
+   <div className="checkout-summary">{items.map(({item,quantity})=><div className="checkout-item" key={item.name}>{item.image?<img src={item.image} alt=""/>:<span className="checkout-qty">{quantity}</span>}<div><b>{item.name}</b><small>Regular</small></div><strong>{money(item.price*quantity)}</strong></div>)}</div>
+   <div className="checkout-totals"><div><span>Subtotal</span><b>{money(total)}</b></div><div><span>Delivery/Pick-up</span><b>{money(0)}</b></div><div className="grand-total"><strong>Total</strong><strong>{money(total)}</strong></div></div>
+   <p className="checkout-store-note"><ShieldCheck size={14}/> Your order goes straight to the store once you place it.</p>
+   {error&&<p className="checkout-error" role="alert">{error}{error.toLowerCase().includes('sign in')&&<button onClick={onSignInRequired}>SIGN IN</button>}</p>}
+   <Button className="checkout-place-button" onClick={placeOrder} disabled={busy||!items.length}>{busy?'PLACING ORDER…':'PLACE ORDER'}<b>{money(total)}</b></Button>
+  </>}
  </section>
 }
-
 function ProfileScreen({data,refreshProfile,onSignOut}:{data:any;refreshProfile:()=>Promise<void>;onSignOut:()=>void}){
  const [page,setPage]=useState<'profile'|'orders'|'order'|'settings'|'edit'>('profile'); const [returnPage,setReturnPage]=useState<'profile'|'orders'>('profile'); const [allOrders,setAllOrders]=useState<any[]>([]); const [selectedOrder,setSelectedOrder]=useState<any>(null); const [notice,setNotice]=useState(''); const [saving,setSaving]=useState(false); const [formError,setFormError]=useState(''); const [displayName,setDisplayName]=useState(data?.user?.name||''); const [whatsapp,setWhatsapp]=useState(data?.user?.whatsapp_number||''); const [photo,setPhoto]=useState<File|null>(null); const [photoPreview,setPhotoPreview]=useState('');
  useEffect(()=>{setDisplayName(data?.user?.name||'');setWhatsapp(data?.user?.whatsapp_number||'')},[data?.user?.name,data?.user?.whatsapp_number]);

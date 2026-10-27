@@ -26,7 +26,7 @@ class PaymentWebhookController extends Controller
         ]);
 
         DB::transaction(function () use ($validated): void {
-            $order = DB::table('orders')->lockForUpdate()->find($validated['order_id']);
+            $order = DB::table('orders')->whereNull('deleted_at')->lockForUpdate()->find($validated['order_id']);
 
             abort_unless($order && $order->payment_method === 'duitnow_qr', 404);
             abort_unless(number_format((float) $order->total, 2, '.', '') === number_format((float) $validated['amount'], 2, '.', ''), 422, 'Payment amount does not match the order total.');

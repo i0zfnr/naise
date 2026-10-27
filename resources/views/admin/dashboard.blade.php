@@ -98,12 +98,12 @@
             </section>
             <section class="card orders-card" id="orders">
                 <div class="card-heading"><div><h2>Recent orders</h2><p>The latest six orders placed through the Naise menu</p></div><a class="card-link" href="{{ route('staff.orders') }}">View receipt queue <span aria-hidden="true">↗</span></a></div>
-                <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Payment</th><th>Status</th><th>Total</th><th>Placed</th></tr></thead><tbody>
+                <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Payment</th><th>Status</th><th>Total</th><th>Placed</th><th>Action</th></tr></thead><tbody>
                     @forelse($recentOrders as $order)
                         @php($orderStatus = str_replace('_', '-', strtolower($order->status)))
-                        <tr><td class="order-id">#{{ $order->id }}</td><td class="customer"><b>{{ $order->customer_name ?: 'Guest customer' }}</b><small>{{ $order->customer_email ?: 'No account linked' }}</small></td><td class="payment-method">{{ ($order->payment_method ?? 'cash') === 'duitnow_qr' ? 'DuitNow QR' : 'Cash' }}</td><td><span class="status-badge {{ $orderStatus }}">{{ str_replace('_', ' ', ucfirst($order->status)) }}</span></td><td>RM {{ number_format($order->total, 2) }}</td><td>{{ \Illuminate\Support\Carbon::parse($order->created_at)->format('d M, g:i A') }}</td></tr>
+                        <tr><td class="order-id">#{{ $order->id }}</td><td class="customer"><b>{{ $order->customer_name ?: 'Customer details unavailable' }}</b><small>{{ $order->customer_phone ?: 'No phone number provided' }}</small><small>{{ $order->customer_email ?: 'Guest checkout' }}</small></td><td class="payment-method">{{ ($order->payment_method ?? 'cash') === 'duitnow_qr' ? 'DuitNow QR' : 'Cash' }}</td><td><span class="status-badge {{ $orderStatus }}">{{ str_replace('_', ' ', ucfirst($order->status)) }}</span></td><td>RM {{ number_format($order->total, 2) }}</td><td>{{ \Illuminate\Support\Carbon::parse($order->created_at)->format('d M, g:i A') }}</td><td><form method="POST" action="{{ route('staff.orders.delete', $order->id) }}" onsubmit="return confirm('Remove order #{{ $order->id }} from the active order lists? Its record and receipt will be kept for review.');">@csrf @method('DELETE')<button class="table-delete-order" type="submit">Delete</button></form></td></tr>
                     @empty
-                        <tr><td class="empty-row" colspan="6">No orders have been placed yet.</td></tr>
+                        <tr><td class="empty-row" colspan="7">No orders have been placed yet.</td></tr>
                     @endforelse
                 </tbody></table></div>
             </section>
@@ -114,6 +114,9 @@
         </main>
     </div>
 </div>
+<style>
+    .table-delete-order{border:1px solid #e6d3cf;border-radius:6px;padding:6px 9px;background:#fff;color:#9d3e35;font-family:inherit;font-size:10px;font-weight:600;cursor:pointer}.table-delete-order:hover{background:#fff4f2}
+</style>
 </body>
 </html>
 
