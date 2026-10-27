@@ -19,7 +19,7 @@ class ProfileController extends Controller
             return response()->json(['authenticated' => false]);
         }
 
-        $orderQuery = DB::table('orders')->where('user_id', $user->id)->latest();
+        $orderQuery = DB::table('orders')->whereNull('deleted_at')->where('user_id', $user->id)->latest();
         $orders = $request->boolean('all_orders') ? $orderQuery->get() : $orderQuery->limit(3)->get();
         $orderItems = DB::table('order_items')->whereIn('order_id', $orders->pluck('id'))->get()->groupBy('order_id');
         $vouchers = DB::table('vouchers')->where('user_id', $user->id)->latest()->limit(3)->get();

@@ -17,6 +17,8 @@ class OrderController extends Controller
             'items.*.name' => ['required', 'string', 'max:255'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
             'payment_method' => ['required', 'in:cash,duitnow_qr'],
+            'customer_name' => ['required', 'string', 'max:120'],
+            'customer_phone' => ['required', 'string', 'max:30', 'regex:/^[+()\d\s.-]{7,30}$/'],
         ]);
 
         if ($validated['payment_method'] === 'duitnow_qr') {
@@ -34,9 +36,11 @@ class OrderController extends Controller
         });
         $subtotal = $pricedItems->sum(fn (array $item): float => $item['unit_price'] * $item['quantity']);
         $paymentMethod = $validated['payment_method'];
-        $orderId = DB::transaction(function () use ($request, $pricedItems, $subtotal, $paymentMethod): int {
+        $orderId = DB::transaction(function () use ($request, $validated, $pricedItems, $subtotal, $paymentMethod): int {
             $orderId = DB::table('orders')->insertGetId([
                 'user_id' => $request->user()?->id,
+                'customer_name' => trim($validated['customer_name']),
+                'customer_phone' => trim($validated['customer_phone']),
                 'status' => $paymentMethod === 'duitnow_qr' ? 'awaiting_payment' : 'received',
                 'payment_method' => $paymentMethod,
                 'payment_status' => $paymentMethod === 'duitnow_qr' ? 'pending' : 'cash_on_pickup',
@@ -77,7 +81,7 @@ class OrderController extends Controller
     public function receipt(Request $request, int $order): JsonResponse
     {
         $user = $request->user();
-        $orderRecord = DB::table('orders')->where('id', $order)->first();
+        $orderRecord = DB::table('orders')->whereNull('deleted_at')->where('id', $order)->first();
 
         abort_unless($orderRecord && $user && $orderRecord->user_id === $user->id, 404);
         abort_unless($orderRecord->payment_method === 'duitnow_qr', 422, 'A receipt is only needed for QR orders.');
@@ -91,7 +95,7 @@ class OrderController extends Controller
             Storage::disk('local')->delete($orderRecord->receipt_path);
         }
 
-        DB::table('orders')->where('id', $order)->update([
+        DB::table('orders')->whereNull('deleted_at')->where('id', $order)->update([
             'receipt_path' => $receiptPath,
             'payment_status' => $orderRecord->payment_status === 'paid' ? 'paid' : 'receipt_submitted',
             'status' => $orderRecord->payment_status === 'paid' ? 'paid' : 'awaiting_verification',
@@ -103,7 +107,7 @@ class OrderController extends Controller
 
     public function paymentStatus(Request $request, int $order): JsonResponse
     {
-        $orderRecord = DB::table('orders')->where('id', $order)->first();
+        $orderRecord = DB::table('orders')->whereNull('deleted_at')->where('id', $order)->first();
 
         abort_unless($orderRecord && $request->user() && $orderRecord->user_id === $request->user()->id, 404);
 

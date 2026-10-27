@@ -10,6 +10,7 @@
     </style>
     <style>
         .staff-brand-mark{position:relative;width:27px;height:27px;flex:none;border:1px solid #26231f;border-radius:50%;display:grid;place-items:center;color:#171715;font:italic 17px Georgia}.staff-brand-mark i{position:absolute;left:3px;bottom:3px;width:3px;height:3px;border-radius:50%;background:#eaae38}
+        .customer-contact{display:grid;gap:3px;margin-top:5px;font-size:10px;color:#62615d}.customer-contact b{color:#252522;font-size:11px}.customer-contact a{width:max-content;color:#5140b6;text-decoration:none}.archive-order-form{margin-top:12px}.archive-order-button{min-height:32px;border:1px solid #e5d8d5;border-radius:6px;background:#fff;color:#a03a32;padding:0 10px;font-size:9px;font-weight:650;letter-spacing:.06em;cursor:pointer}.archive-order-button:hover{background:#fff4f2;border-color:#d8b6b1}
     </style>
 </head>
 <body>
@@ -30,7 +31,7 @@
            @foreach($orders as $order)
                <article class="order">
                    <div class="top">
-                       <div><h2>Order #{{ $order->id }}</h2><div class="meta">{{ $order->customer_name ?: 'Guest customer' }} · {{ $order->customer_email ?: 'No account linked' }} · {{ \Illuminate\Support\Carbon::parse($order->created_at)->format('d M, g:i A') }}</div></div>
+                       <div><h2>Order #{{ $order->id }}</h2><div class="customer-contact"><b>{{ $order->customer_name ?: 'Customer details unavailable' }}</b>@if($order->customer_phone)<a href="tel:{{ $order->customer_phone }}">{{ $order->customer_phone }}</a>@else<span>No phone number provided</span>@endif<span>{{ $order->customer_email ?: 'Guest checkout' }} · {{ \Illuminate\Support\Carbon::parse($order->created_at)->format('d M, g:i A') }}</span></div></div>
                        <div class="pills"><span class="pill method">{{ $order->payment_method === 'duitnow_qr' ? 'DUITNOW QR' : 'CASH' }}</span><span class="pill {{ $order->payment_status === 'paid' ? 'paid' : 'pending' }}">{{ str_replace('_', ' ', strtoupper($order->payment_status)) }}</span></div>
                    </div>
                    <div class="items">
@@ -55,6 +56,11 @@
                    @else
                        <div class="proof-missing">Waiting for payment confirmation or customer receipt.</div>
                    @endif
+                   <form class="archive-order-form" method="POST" action="{{ route('staff.orders.delete', $order->id) }}" onsubmit="return confirm('Remove order #{{ $order->id }} from the active order lists? Its record and receipt will be kept for review.');">
+                       @csrf
+                       @method('DELETE')
+                       <button class="archive-order-button" type="submit">DELETE ORDER</button>
+                   </form>
                </article>
            @endforeach
        @endif

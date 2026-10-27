@@ -17,6 +17,7 @@ class StaffOrderController extends Controller
     {
         $orders = DB::table('orders')
             ->leftJoin('users', 'orders.user_id', '=', 'users.id')
+            ->whereNull('orders.deleted_at')
             ->where(function (Builder $query): void {
                 $query->where(function (Builder $qrOrders): void {
                     $qrOrders->where('orders.payment_method', 'duitnow_qr')
@@ -28,7 +29,12 @@ class StaffOrderController extends Controller
                 });
             })
             ->orderByDesc('orders.created_at')
-            ->select('orders.*', 'users.name as customer_name', 'users.email as customer_email')
+            ->select(
+                'orders.*',
+                DB::raw('COALESCE(orders.customer_name, users.name) as customer_name'),
+                DB::raw('COALESCE(orders.customer_phone, users.whatsapp_number) as customer_phone'),
+                'users.email as customer_email',
+            )
             ->get()
             ->map(function (object $order): object {
                 $order->items = DB::table('order_items')->where('order_id', $order->id)->get();
@@ -41,7 +47,7 @@ class StaffOrderController extends Controller
 
     public function receipt(int $order): StreamedResponse
     {
-        $receiptPath = DB::table('orders')->where('id', $order)->value('receipt_path');
+        $receiptPath = DB::table('orders')->whereNull('deleted_at')->where('id', $order)->value('receipt_path');
         abort_unless($receiptPath, 404);
 
         return Storage::disk('local')->response($receiptPath);
@@ -51,6 +57,7 @@ class StaffOrderController extends Controller
     {
         $updated = DB::table('orders')
             ->where('id', $order)
+            ->whereNull('deleted_at')
             ->where('payment_method', 'duitnow_qr')
             ->where('payment_status', 'receipt_submitted')
             ->whereNotNull('receipt_path')
@@ -68,6 +75,7 @@ class StaffOrderController extends Controller
     {
         $updated = DB::table('orders')
             ->where('id', $order)
+            ->whereNull('deleted_at')
             ->where('payment_method', 'cash')
             ->where('payment_status', 'cash_on_pickup')
             ->whereNotIn('status', ['paid', 'completed', 'picked_up', 'cancelled'])
@@ -79,5 +87,15 @@ class StaffOrderController extends Controller
             ]);
 
         return back()->with('receipt_review_message', $updated ? 'Cash received and order completed.' : 'This cash order is no longer awaiting payment.');
+    }
+
+    public function destroy(int $order): RedirectResponse
+    {
+        $archived = DB::table('orders')
+            ->where('id', $order)
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => now(), 'updated_at' => now()]);
+
+        return back()->with('receipt_review_message', $archived ? 'Order removed from active lists. The order record and receipt are retained.' : 'This order is already archived or was not found.');
     }
 }

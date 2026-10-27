@@ -58,18 +58,19 @@ class AdminAuthController extends Controller
             ->where('paid_at', '>=', $todayStartUtc)
             ->where('paid_at', '<', $tomorrowStartUtc);
         $unpaidOrders = DB::table('orders')
+            ->whereNull('deleted_at')
             ->whereNotIn('status', ['paid', 'completed', 'picked_up', 'cancelled'])
             ->where('payment_status', '!=', 'paid');
 
         return view('admin.dashboard', [
             'menuCount' => count($menu),
             'categoryCounts' => collect($menu)->countBy('category')->sortKeys(),
-            'orderCount' => DB::table('orders')->count(),
+            'orderCount' => DB::table('orders')->whereNull('deleted_at')->count(),
             'customerCount' => DB::table('users')->count(),
             'totalSales' => $this->paidSalesQuery()->sum('total'),
             'todaySales' => (float) (clone $todayPaidOrders)->sum('total'),
             'todayPaidOrderCount' => (clone $todayPaidOrders)->count(),
-            'todayOrderCount' => DB::table('orders')->where('created_at', '>=', $todayStartUtc)->where('created_at', '<', $tomorrowStartUtc)->count(),
+            'todayOrderCount' => DB::table('orders')->whereNull('deleted_at')->where('created_at', '>=', $todayStartUtc)->where('created_at', '<', $tomorrowStartUtc)->count(),
             'unpaidOrderCount' => (clone $unpaidOrders)->count(),
             'unpaidOrderTotal' => (float) (clone $unpaidOrders)->sum('total'),
             'dailySales' => $dailySales,
@@ -78,16 +79,26 @@ class AdminAuthController extends Controller
             'paymentSettings' => DB::table('payment_settings')->first(),
             'recentOrders' => DB::table('orders')
                 ->leftJoin('users', 'orders.user_id', '=', 'users.id')
+                ->whereNull('orders.deleted_at')
                 ->orderByDesc('orders.created_at')
                 ->limit(6)
-                ->select('orders.id', 'orders.status', 'orders.payment_method', 'orders.total', 'orders.created_at', 'users.name as customer_name', 'users.email as customer_email')
+                ->select(
+                    'orders.id',
+                    'orders.status',
+                    'orders.payment_method',
+                    'orders.total',
+                    'orders.created_at',
+                    DB::raw('COALESCE(orders.customer_name, users.name) as customer_name'),
+                    DB::raw('COALESCE(orders.customer_phone, users.whatsapp_number) as customer_phone'),
+                    'users.email as customer_email',
+                )
                 ->get(),
         ]);
     }
 
     public function overview(): JsonResponse
     {
-        $orders = DB::table('orders');
+        $orders = DB::table('orders')->whereNull('deleted_at');
         $paidOrders = $this->paidSalesQuery();
 
         return response()->json([
