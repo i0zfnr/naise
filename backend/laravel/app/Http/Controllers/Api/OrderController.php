@@ -1,0 +1,117 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+
+class OrderController extends Controller
+{
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'items' => ['required', 'array', 'min:1', 'max:20'],
+            'items.*.name' => ['required', 'string', 'max:255'],
+            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
+            'payment_method' => ['required', 'in:cash,duitnow_qr'],
+        ]);
+
+        if ($validated['payment_method'] === 'duitnow_qr') {
+            if (! $request->user()) {
+                return response()->json(['message' => 'Sign in before choosing QR payment so your receipt can be linked to your order.'], 401);
+            }
+
+            abort_unless(DB::table('payment_settings')->whereNotNull('qr_code_path')->exists(), 422, 'QR payment is not available yet. Please choose cash on pickup.');
+        }
+        $catalog = collect(json_decode(file_get_contents(resource_path('menu.json')), true, flags: JSON_THROW_ON_ERROR))->keyBy('name');
+        $pricedItems = collect($validated['items'])->map(function (array $item) use ($catalog): array {
+            abort_unless($catalog->has($item['name']), 422, 'A selected drink is not on the menu.');
+
+            return [...$item, 'unit_price' => (float) $catalog->get($item['name'])['price']];
+        });
+        $subtotal = $pricedItems->sum(fn (array $item): float => $item['unit_price'] * $item['quantity']);
+        $paymentMethod = $validated['payment_method'];
+        $orderId = DB::transaction(function () use ($request, $pricedItems, $subtotal, $paymentMethod): int {
+            $orderId = DB::table('orders')->insertGetId([
+                'user_id' => $request->user()?->id,
+                'status' => $paymentMethod === 'duitnow_qr' ? 'awaiting_payment' : 'received',
+                'payment_method' => $paymentMethod,
+                'payment_status' => $paymentMethod === 'duitnow_qr' ? 'pending' : 'cash_on_pickup',
+                'subtotal' => $subtotal,
+                'discount_total' => 0,
+                'total' => $subtotal,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            foreach ($pricedItems as $item) {
+                DB::table('order_items')->insert(['order_id' => $orderId, 'product_name' => $item['name'], 'quantity' => $item['quantity'], 'unit_price' => $item['unit_price'], 'created_at' => now(), 'updated_at' => now()]);
+            }
+
+            return $orderId;
+        });
+
+        return response()->json([
+            'message' => $paymentMethod === 'duitnow_qr' ? 'Order created. Waiting for payment provider confirmation.' : 'Order placed. Pay at the counter when you pick it up.',
+            'order_id' => $orderId,
+            'subtotal' => $subtotal,
+            'total' => $subtotal,
+            'payment_method' => $paymentMethod,
+            'payment_status' => $paymentMethod === 'duitnow_qr' ? 'pending' : 'cash_on_pickup',
+        ], 201);
+    }
+
+    public function paymentSettings(): JsonResponse
+    {
+        $settings = DB::table('payment_settings')->first();
+
+        return response()->json([
+            'configured' => (bool) ($settings?->qr_code_path),
+            'merchant_name' => $settings?->merchant_name,
+            'qr_code_url' => $settings?->qr_code_path ? Storage::disk('public')->url($settings->qr_code_path) : null,
+        ]);
+    }
+
+    public function receipt(Request $request, int $order): JsonResponse
+    {
+        $user = $request->user();
+        $orderRecord = DB::table('orders')->where('id', $order)->first();
+
+        abort_unless($orderRecord && $user && $orderRecord->user_id === $user->id, 404);
+        abort_unless($orderRecord->payment_method === 'duitnow_qr', 422, 'A receipt is only needed for QR orders.');
+
+        $validated = $request->validate([
+            'receipt' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+        ]);
+        $receiptPath = $validated['receipt']->store('payment-receipts');
+
+        if ($orderRecord->receipt_path) {
+            Storage::disk('local')->delete($orderRecord->receipt_path);
+        }
+
+        DB::table('orders')->where('id', $order)->update([
+            'receipt_path' => $receiptPath,
+            'payment_status' => $orderRecord->payment_status === 'paid' ? 'paid' : 'receipt_submitted',
+            'status' => $orderRecord->payment_status === 'paid' ? 'paid' : 'awaiting_verification',
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['message' => 'Receipt submitted. Store staff can review it before preparing your order.', 'payment_status' => $orderRecord->payment_status === 'paid' ? 'paid' : 'receipt_submitted']);
+    }
+
+    public function paymentStatus(Request $request, int $order): JsonResponse
+    {
+        $orderRecord = DB::table('orders')->where('id', $order)->first();
+
+        abort_unless($orderRecord && $request->user() && $orderRecord->user_id === $request->user()->id, 404);
+
+        return response()->json([
+            'order_id' => $orderRecord->id,
+            'status' => $orderRecord->status,
+            'payment_status' => $orderRecord->payment_status,
+            'receipt_submitted' => (bool) $orderRecord->receipt_path,
+        ]);
+    }
+}

@@ -1,0 +1,296 @@
+[
+  {
+    "name": "Butterbrew",
+    "price": 8.0,
+    "category": "Refresher",
+    "bestSeller": true,
+    "image": "/images/butterbrew.png"
+  },
+  {
+    "name": "Buttercream Latte",
+    "price": 13.0,
+    "category": "Coffee",
+    "bestSeller": true,
+    "image": "/images/buttercream-latte.png"
+  },
+  {
+    "name": "Caramel Macchiato",
+    "price": 12.0,
+    "category": "Coffee",
+    "bestSeller": true,
+    "image": "/images/caramel-macchiato.png"
+  },
+  {
+    "name": "Chocolate Buttercream",
+    "price": 12.0,
+    "category": "Non Coffee",
+    "bestSeller": true,
+    "image": "/images/chocolate-buttercream.png"
+  },
+  {
+    "name": "Chocolate Caramel",
+    "price": 11.0,
+    "category": "Non Coffee",
+    "bestSeller": true,
+    "image": "/images/chocolate-caramel.png"
+  },
+  {
+    "name": "Chocolate Milk",
+    "price": 10.0,
+    "category": "Non Coffee",
+    "bestSeller": true,
+    "image": "/images/chocolate-milk.png"
+  },
+  {
+    "name": "Coffee Latte",
+    "price": 9.0,
+    "category": "Coffee",
+    "bestSeller": true,
+    "image": "/images/coffee-latte.png"
+  },
+  {
+    "name": "Extrajoss Anggur",
+    "price": 5.0,
+    "category": "Refresher",
+    "bestSeller": true,
+    "image": "/images/extrajoss-anggur.png"
+  },
+  {
+    "name": "Matcha Buttercream",
+    "price": 13.0,
+    "category": "Matcha",
+    "bestSeller": true,
+    "image": "/images/matcha-buttercream.png"
+  },
+  {
+    "name": "Matcha Latte",
+    "price": 10.0,
+    "category": "Matcha",
+    "bestSeller": true,
+    "image": "/images/matcha-latte.png"
+  },
+  {
+    "name": "Matcha Strawberry",
+    "price": 12.0,
+    "category": "Matcha",
+    "bestSeller": true,
+    "image": "/images/matcha-strawberry.png"
+  },
+  {
+    "name": "Spanish Latte",
+    "price": 10.0,
+    "category": "Coffee",
+    "bestSeller": true,
+    "image": "/images/spanish-latte.png"
+  },
+  {
+    "name": "Strawberry Yoghurt",
+    "price": 10.0,
+    "category": "Yoghurt",
+    "bestSeller": true,
+    "image": "/images/strawberry-yoghurt.png"
+  },
+  {
+    "name": "White Matcha Latte",
+    "price": 11.0,
+    "category": "Matcha",
+    "bestSeller": true,
+    "image": "/images/white-matcha-latte.png"
+  },
+  {
+    "name": "White Mocha",
+    "price": 11.0,
+    "category": "Coffee",
+    "bestSeller": true,
+    "image": "/images/white-mocha.png"
+  },
+  {
+    "name": "Americano",
+    "price": 7.0,
+    "category": "Coffee",
+    "bestSeller": false,
+    "image": "/images/americano.png"
+  },
+  {
+    "name": "Dark Mocha",
+    "price": 13.0,
+    "category": "Coffee",
+    "bestSeller": false,
+    "image": "/images/dark-mocha.png"
+  },
+  {
+    "name": "Hazelnut Latte",
+    "price": 10.0,
+    "category": "Coffee",
+    "bestSeller": false,
+    "image": "/images/hazelnut-latte.png"
+  },
+  {
+    "name": "Mocha",
+    "price": 11.0,
+    "category": "Coffee",
+    "bestSeller": false,
+    "image": "/images/mocha.png"
+  },
+  {
+    "name": "Salted Caramel Latte",
+    "price": 11.0,
+    "category": "Coffee",
+    "bestSeller": false,
+    "image": "/images/salted-caramel-latte.png"
+  },
+  {
+    "name": "Sea Salt Cloudy Latte",
+    "price": 13.0,
+    "category": "Coffee",
+    "bestSeller": false,
+    "image": "/images/sea-salt-cloudy-latte.png"
+  },
+  {
+    "name": "Vanilla Latte",
+    "price": 10.0,
+    "category": "Coffee",
+    "bestSeller": false,
+    "image": "/images/vanilla-latte.png"
+  },
+  {
+    "name": "Matcha Blueberry",
+    "price": 12.0,
+    "category": "Matcha",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Matcha Caramel",
+    "price": 11.0,
+    "category": "Matcha",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Sea Salt Matcha Latte",
+    "price": 13.0,
+    "category": "Matcha",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Blueberry Milk",
+    "price": 9.0,
+    "category": "Non Coffee",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Caramel Milk",
+    "price": 7.0,
+    "category": "Non Coffee",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Chocolate Blueberry",
+    "price": 12.0,
+    "category": "Non Coffee",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Chocolate Hazelnut",
+    "price": 11.0,
+    "category": "Non Coffee",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Chocolate Strawberry",
+    "price": 12.0,
+    "category": "Non Coffee",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Red Velvet Buttercream",
+    "price": 10.0,
+    "category": "Non Coffee",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Strawberry Buttercream",
+    "price": 11.0,
+    "category": "Non Coffee",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Strawberry Milk",
+    "price": 9.0,
+    "category": "Non Coffee",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Vanilla Milk",
+    "price": 8.0,
+    "category": "Non Coffee",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Apple Yoghurt",
+    "price": 10.0,
+    "category": "Yoghurt",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Blueberry Yoghurt",
+    "price": 10.0,
+    "category": "Yoghurt",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Apple Soda",
+    "price": 6.0,
+    "category": "Refresher",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Blue Lemon",
+    "price": 6.0,
+    "category": "Refresher",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Extrajoss Mangga",
+    "price": 5.0,
+    "category": "Refresher",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Peach Tea",
+    "price": 5.0,
+    "category": "Refresher",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Ribena Soda",
+    "price": 6.0,
+    "category": "Refresher",
+    "bestSeller": false,
+    "image": ""
+  },
+  {
+    "name": "Strawberry Soda",
+    "price": 6.0,
+    "category": "Refresher",
+    "bestSeller": false,
+    "image": ""
+  }
+]
