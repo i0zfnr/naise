@@ -10,6 +10,5 @@ backend/laravel/opencode.json
 backend/laravel/.codex/
 backend/laravel/.claude/
 backend/laravel/.agents/
-backend/laravel/public/build/
 backend/laravel/public/hot
 backend/laravel/storage/
