@@ -23,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if ($this->app->environment('production')) {
+        if ($this->app->environment('production') && ! $this->app->runningInConsole()) {
             if (config('app.debug')) {
                 throw new RuntimeException('APP_DEBUG must be false when APP_ENV is production.');
             }
