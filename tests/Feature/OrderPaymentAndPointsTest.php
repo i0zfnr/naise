@@ -61,19 +61,19 @@ class OrderPaymentAndPointsTest extends TestCase
         ])->assertCreated()->json('order_id');
 
         $payload = [
-            'order_id' => $orderId,
-            'status' => 'paid',
+            'event_id' => 'event-'.$orderId,
+            'event_type' => 'payment.succeeded',
+            'order_reference' => $orderId,
             'amount' => '8.00',
             'payment_reference' => 'test-payment-'.$orderId,
+            'currency' => 'MYR',
         ];
-        $body = json_encode($payload, JSON_THROW_ON_ERROR);
-        $signature = hash_hmac('sha256', $body, 'test-webhook-secret');
 
         for ($attempt = 0; $attempt < 2; $attempt++) {
-            $this->call('POST', '/api/payments/webhook', [], [], [], [
-                'CONTENT_TYPE' => 'application/json',
-                'HTTP_X_NAISE_SIGNATURE' => $signature,
-            ], $body)->assertOk();
+            $response = $this->sendSignedWebhook($payload)->assertOk();
+            if ($attempt === 1) {
+                $response->assertJsonPath('duplicate', true);
+            }
         }
 
         $this->assertDatabaseHas('orders', ['id' => $orderId, 'payment_status' => 'paid', 'points_earned' => 8]);
@@ -95,16 +95,33 @@ class OrderPaymentAndPointsTest extends TestCase
             'customer_phone' => '+60 12-345 6789',
         ])->assertCreated()->json('order_id');
 
-        $payload = ['order_id' => $orderId, 'status' => 'paid', 'amount' => '8.01', 'payment_reference' => 'wrong-amount-'.$orderId];
-        $body = json_encode($payload, JSON_THROW_ON_ERROR);
-
-        $this->call('POST', '/api/payments/webhook', [], [], [], [
-            'CONTENT_TYPE' => 'application/json',
-            'HTTP_X_NAISE_SIGNATURE' => hash_hmac('sha256', $body, 'test-webhook-secret'),
-        ], $body)->assertUnprocessable();
+        $this->sendSignedWebhook([
+            'event_id' => 'wrong-amount-'.$orderId,
+            'event_type' => 'payment.succeeded',
+            'order_reference' => $orderId,
+            'amount' => '8.01',
+            'payment_reference' => 'wrong-amount-'.$orderId,
+            'currency' => 'MYR',
+        ])->assertUnprocessable();
 
         $this->assertDatabaseHas('orders', ['id' => $orderId, 'payment_status' => 'pending', 'points_earned' => 0]);
         $this->assertSame(0, $customer->fresh()->points);
+    }
+
+    public function test_stale_signed_payment_webhook_is_rejected(): void
+    {
+        $config = [
+            'event_id' => 'stale-event',
+            'event_type' => 'payment.succeeded',
+            'order_reference' => 1,
+            'payment_reference' => 'stale-payment',
+            'amount' => '8.00',
+            'currency' => 'MYR',
+        ];
+        config(['services.naise.payment_webhook_secret' => 'test-webhook-secret']);
+
+        $this->sendSignedWebhook($config, now()->timestamp - 600)->assertUnauthorized();
+        $this->assertDatabaseCount('payment_events', 0);
     }
 
     public function test_redeeming_one_hundred_available_points_creates_a_free_drink_voucher(): void
@@ -155,12 +172,14 @@ class OrderPaymentAndPointsTest extends TestCase
                     'updated_at' => now(),
                 ]);
 
-                $payload = ['order_id' => $orderId, 'status' => 'paid', 'amount' => number_format(8 * $quantity, 2, '.', ''), 'payment_reference' => 'volume-'.$orderId];
-                $body = json_encode($payload, JSON_THROW_ON_ERROR);
-                $this->call('POST', '/api/payments/webhook', [], [], [], [
-                    'CONTENT_TYPE' => 'application/json',
-                    'HTTP_X_NAISE_SIGNATURE' => hash_hmac('sha256', $body, 'test-webhook-secret'),
-                ], $body)->assertOk();
+                $this->sendSignedWebhook([
+                    'event_id' => 'event-volume-'.$orderId,
+                    'event_type' => 'payment.succeeded',
+                    'order_reference' => $orderId,
+                    'amount' => number_format(8 * $quantity, 2, '.', ''),
+                    'payment_reference' => 'volume-'.$orderId,
+                    'currency' => 'MYR',
+                ])->assertOk();
                 $cupCountTotal += $quantity;
             }
         }
@@ -193,5 +212,18 @@ class OrderPaymentAndPointsTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    private function sendSignedWebhook(array $payload, ?int $timestamp = null): \Illuminate\Testing\TestResponse
+    {
+        $timestamp ??= now()->timestamp;
+        $body = json_encode($payload, JSON_THROW_ON_ERROR);
+        $signature = hash_hmac('sha256', $timestamp.'.'.$body, 'test-webhook-secret');
+
+        return $this->call('POST', '/api/payments/webhook', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_NAISE_TIMESTAMP' => (string) $timestamp,
+            'HTTP_X_NAISE_SIGNATURE' => $signature,
+        ], $body);
     }
 }

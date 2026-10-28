@@ -36,6 +36,8 @@ return [
         'points_per_free_drink' => (int) env('NAISE_POINTS_PER_FREE_DRINK', 100),
         'points_per_ringgit' => (int) env('NAISE_POINTS_PER_RINGGIT', 1),
         'payment_webhook_secret' => env('NAISE_PAYMENT_WEBHOOK_SECRET'),
+        'payment_provider' => env('NAISE_PAYMENT_PROVIDER', 'acquirer'),
+        'payment_webhook_tolerance_seconds' => (int) env('NAISE_PAYMENT_WEBHOOK_TOLERANCE_SECONDS', 300),
     ],
 
     'google' => [
