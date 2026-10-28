@@ -28,12 +28,12 @@
     "src": "_instrument-sans-600-normal-B9e8oLYv.woff"
   },
   "resources/js/main.tsx": {
-    "file": "assets/main-DwOdkTqD.js",
+    "file": "assets/main-BjzBr-aS.js",
     "name": "main",
     "src": "resources/js/main.tsx",
     "isEntry": true,
     "css": [
-      "assets/main--9rf616T.css"
+      "assets/main-BDLwg2vq.css"
     ]
   }
 }

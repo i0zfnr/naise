@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -19,10 +20,15 @@ return new class extends Migration
         DB::table('orders')
             ->join('users', 'orders.user_id', '=', 'users.id')
             ->whereNull('orders.customer_name')
-            ->update([
-                'orders.customer_name' => DB::raw('users.name'),
-                'orders.customer_phone' => DB::raw('users.whatsapp_number'),
-            ]);
+            ->select('orders.id', 'users.name', 'users.whatsapp_number')
+            ->orderBy('orders.id')
+            ->get()
+            ->each(static function (object $customer): void {
+                DB::table('orders')->where('id', $customer->id)->update([
+                    'customer_name' => $customer->name,
+                    'customer_phone' => $customer->whatsapp_number,
+                ]);
+            });
     }
 
     /**

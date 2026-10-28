@@ -34,6 +34,7 @@ return [
         'admin_password_hash' => env('NAISE_ADMIN_PASSWORD_HASH'),
         'store_passcode_hash' => env('NAISE_STORE_PASSCODE_HASH'),
         'points_per_free_drink' => (int) env('NAISE_POINTS_PER_FREE_DRINK', 100),
+        'points_per_ringgit' => (int) env('NAISE_POINTS_PER_RINGGIT', 1),
         'payment_webhook_secret' => env('NAISE_PAYMENT_WEBHOOK_SECRET'),
     ],
 
@@ -41,6 +42,12 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/auth/google/callback'),
+    ],
+
+    'brevo' => [
+        'api_key' => env('BREVO_API_KEY'),
+        'sender_email' => env('BREVO_SENDER_EMAIL'),
+        'sender_name' => env('BREVO_SENDER_NAME', env('APP_NAME', 'Naise Coffee')),
     ],
 
     'slack' => [

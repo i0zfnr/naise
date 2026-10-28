@@ -21,6 +21,10 @@ class OrderController extends Controller
             'customer_phone' => ['required', 'string', 'max:30', 'regex:/^[+()\d\s.-]{7,30}$/'],
         ]);
 
+        if ($request->user() && blank($request->user()->whatsapp_number)) {
+            return response()->json(['message' => 'Add your WhatsApp number to your profile before placing an order.'], 422);
+        }
+
         if ($validated['payment_method'] === 'duitnow_qr') {
             if (! $request->user()) {
                 return response()->json(['message' => 'Sign in before choosing QR payment so your receipt can be linked to your order.'], 401);
@@ -52,6 +56,13 @@ class OrderController extends Controller
             ]);
             foreach ($pricedItems as $item) {
                 DB::table('order_items')->insert(['order_id' => $orderId, 'product_name' => $item['name'], 'quantity' => $item['quantity'], 'unit_price' => $item['unit_price'], 'created_at' => now(), 'updated_at' => now()]);
+            }
+
+            if ($request->user()) {
+                DB::table('users')->where('id', $request->user()->id)->update([
+                    'whatsapp_number' => trim($validated['customer_phone']),
+                    'updated_at' => now(),
+                ]);
             }
 
             return $orderId;

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\BrevoTransactionalEmail;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -16,10 +17,10 @@ class GoogleAuthController extends Controller
     {
         abort_unless(config('services.google.client_id') && config('services.google.client_secret'), 503, 'Google sign-in is not configured yet. Add your Google OAuth client ID and secret to the local environment.');
 
-        return Socialite::driver('google')->redirect();
+        return Socialite::driver('google')->scopes(['openid', 'profile', 'email'])->redirect();
     }
 
-    public function callback(): RedirectResponse
+    public function callback(BrevoTransactionalEmail $email): RedirectResponse
     {
         try {
             $googleUser = Socialite::driver('google')->user();
@@ -34,15 +35,17 @@ class GoogleAuthController extends Controller
         }
 
         $user = User::query()->where('google_id', $googleUser->getId())->orWhere('email', $googleUser->getEmail())->first();
+        $newAccount = ! $user;
 
         if ($user) {
-            $user->forceFill(['google_id' => $googleUser->getId(), 'name' => $googleUser->getName() ?: $user->name, 'avatar_url' => $googleUser->getAvatar() ?: $user->avatar_url, 'email_verified_at' => $user->email_verified_at ?: now()])->save();
+            $user->forceFill(['google_id' => $googleUser->getId(), 'name' => $googleUser->getName() ?: $user->name, 'avatar_url' => $googleUser->getAvatar() ?: ($googleUser->getRaw()['picture'] ?? $user->avatar_url), 'email_verified_at' => $user->email_verified_at ?: now()])->save();
         } else {
             $user = User::query()->create(['google_id' => $googleUser->getId(), 'name' => $googleUser->getName() ?: 'Naise member', 'email' => $googleUser->getEmail(), 'email_verified_at' => now(), 'password' => Hash::make(str()->random(48)), 'avatar_url' => $googleUser->getAvatar()]);
         }
 
         Auth::login($user, true);
         request()->session()->regenerate();
+        $email->sendSignInNotice($user, $newAccount);
 
         return redirect('/')->with('profile', true);
     }
