@@ -43,7 +43,7 @@ class ProfileController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'whatsapp_number' => ['nullable', 'string', 'max:30'],
+            'whatsapp_number' => ['required', 'string', 'max:30', 'regex:/^[+()\d\s.-]{7,30}$/'],
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 

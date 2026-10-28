@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\LoyaltyPointsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PaymentWebhookController extends Controller
 {
-    public function handle(Request $request): JsonResponse
+    public function handle(Request $request, LoyaltyPointsService $loyaltyPoints): JsonResponse
     {
         $secret = (string) config('services.naise.payment_webhook_secret');
         abort_if($secret === '', 503, 'Payment provider webhook is not configured.');
@@ -25,7 +26,7 @@ class PaymentWebhookController extends Controller
             'payment_reference' => ['required', 'string', 'max:100'],
         ]);
 
-        DB::transaction(function () use ($validated): void {
+        DB::transaction(function () use ($validated, $loyaltyPoints): void {
             $order = DB::table('orders')->whereNull('deleted_at')->lockForUpdate()->find($validated['order_id']);
 
             abort_unless($order && $order->payment_method === 'duitnow_qr', 404);
@@ -51,6 +52,8 @@ class PaymentWebhookController extends Controller
                 'paid_at' => now(),
                 'updated_at' => now(),
             ]);
+
+            $loyaltyPoints->awardForPaidOrder((int) $order->id);
         });
 
         return response()->json(['ok' => true, 'message' => 'Payment status recorded.']);

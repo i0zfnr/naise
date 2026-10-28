@@ -55,4 +55,5 @@ Route::middleware(['staff', 'throttle:staff-actions'])->group(function (): void 
     Route::get('/staff/orders/{order}/receipt', [StaffOrderController::class, 'receipt'])->name('staff.orders.receipt');
     Route::post('/staff/orders/{order}/verify-receipt', [StaffOrderController::class, 'verifyReceipt'])->name('staff.orders.verify-receipt');
     Route::post('/staff/orders/{order}/mark-cash-received', [StaffOrderController::class, 'markCashReceived'])->name('staff.orders.mark-cash-received');
+    Route::post('/staff/orders/{order}/mark-ready', [StaffOrderController::class, 'markReady'])->name('staff.orders.mark-ready');
 });

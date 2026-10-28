@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\LoyaltyPointsService;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,10 +25,10 @@ class StaffOrderController extends Controller
                         ->whereIn('orders.payment_status', ['pending', 'receipt_submitted', 'paid']);
                 })->orWhere(function (Builder $cashOrders): void {
                     $cashOrders->where('orders.payment_method', 'cash')
-                        ->where('orders.payment_status', 'cash_on_pickup')
-                        ->whereNotIn('orders.status', ['paid', 'completed', 'picked_up', 'cancelled']);
+                        ->whereIn('orders.payment_status', ['cash_on_pickup', 'paid']);
                 });
             })
+            ->whereNotIn('orders.status', ['completed', 'picked_up', 'cancelled'])
             ->orderByDesc('orders.created_at')
             ->select(
                 'orders.*',
@@ -38,6 +39,7 @@ class StaffOrderController extends Controller
             ->get()
             ->map(function (object $order): object {
                 $order->items = DB::table('order_items')->where('order_id', $order->id)->get();
+                $order->whatsapp_url = $this->whatsappUrl($order);
 
                 return $order;
             });
@@ -53,7 +55,7 @@ class StaffOrderController extends Controller
         return Storage::disk('local')->response($receiptPath);
     }
 
-    public function verifyReceipt(Request $request, int $order): RedirectResponse
+    public function verifyReceipt(Request $request, int $order, LoyaltyPointsService $loyaltyPoints): RedirectResponse
     {
         $updated = DB::table('orders')
             ->where('id', $order)
@@ -68,10 +70,14 @@ class StaffOrderController extends Controller
                 'updated_at' => now(),
             ]);
 
+        if ($updated) {
+            $loyaltyPoints->awardForPaidOrder($order);
+        }
+
         return back()->with('receipt_review_message', $updated ? 'Receipt verified and order approved.' : 'This order has no pending receipt to verify.');
     }
 
-    public function markCashReceived(int $order): RedirectResponse
+    public function markCashReceived(int $order, LoyaltyPointsService $loyaltyPoints): RedirectResponse
     {
         $updated = DB::table('orders')
             ->where('id', $order)
@@ -81,12 +87,28 @@ class StaffOrderController extends Controller
             ->whereNotIn('status', ['paid', 'completed', 'picked_up', 'cancelled'])
             ->update([
                 'payment_status' => 'paid',
-                'status' => 'completed',
+                'status' => 'paid',
                 'paid_at' => now(),
                 'updated_at' => now(),
             ]);
 
-        return back()->with('receipt_review_message', $updated ? 'Cash received and order completed.' : 'This cash order is no longer awaiting payment.');
+        if ($updated) {
+            $loyaltyPoints->awardForPaidOrder($order);
+        }
+
+        return back()->with('receipt_review_message', $updated ? 'Cash received. Order payment confirmed and points credited.' : 'This cash order is no longer awaiting payment.');
+    }
+
+    public function markReady(int $order): RedirectResponse
+    {
+        $updated = DB::table('orders')
+            ->where('id', $order)
+            ->whereNull('deleted_at')
+            ->where('payment_status', 'paid')
+            ->whereNotIn('status', ['ready', 'completed', 'picked_up', 'cancelled'])
+            ->update(['status' => 'ready', 'updated_at' => now()]);
+
+        return back()->with('receipt_review_message', $updated ? 'Order marked ready. Use the WhatsApp button to open a message to the customer.' : 'Only a paid order can be marked ready.');
     }
 
     public function destroy(int $order): RedirectResponse
@@ -97,5 +119,26 @@ class StaffOrderController extends Controller
             ->update(['deleted_at' => now(), 'updated_at' => now()]);
 
         return back()->with('receipt_review_message', $archived ? 'Order removed from active lists. The order record and receipt are retained.' : 'This order is already archived or was not found.');
+    }
+
+    private function whatsappUrl(object $order): ?string
+    {
+        $phone = preg_replace('/\D+/', '', (string) $order->customer_phone) ?? '';
+
+        if (strlen($phone) < 9) {
+            return null;
+        }
+
+        if (str_starts_with($phone, '00')) {
+            $phone = substr($phone, 2);
+        } elseif (str_starts_with($phone, '0')) {
+            $phone = '60'.ltrim($phone, '0');
+        } elseif (! str_starts_with($phone, '60')) {
+            $phone = '60'.$phone;
+        }
+
+        $message = 'Hi '.$order->customer_name.', your Naise order #'.$order->id.' is ready for pickup. See you soon!';
+
+        return 'https://wa.me/'.$phone.'?text='.rawurlencode($message);
     }
 }

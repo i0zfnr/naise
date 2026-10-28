@@ -44,3 +44,5 @@
 .payment-method.ui-button--ghost{border:0;background:#f5f5f5;color:#111}.payment-method.ui-button--ghost.active{background:#050505;color:#fff}
 @media(prefers-reduced-motion:reduce){.ui-button,.ui-input{transition:none}.ui-button:not(:disabled):active{transform:none}}
 .checkout-customer-info{display:grid;gap:8px;margin:0 0 18px}.checkout-customer-info label{margin-top:3px;font:600 10px 'DM Sans';letter-spacing:.04em;color:#555}.checkout-customer-info input{width:100%;min-height:43px;padding:0 12px;border:1px solid #e5e2dc;border-radius:11px;background:#fff;font:12px 'DM Sans'}.checkout-customer-info>small{font:10px/1.5 'DM Sans';color:#8b867d}.payment-method-label{margin-top:21px}
+.points-earn-note{margin:8px 2px 0;color:#777;font:10px/1.5 'DM Sans'}
+.order-status.preparing{color:#7556b5;background:#f3efff}

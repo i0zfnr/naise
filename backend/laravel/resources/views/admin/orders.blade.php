@@ -40,10 +40,23 @@
                        @endforeach
                    </div>
                    <div class="total"><span>Total</span><span>RM {{ number_format($order->total, 2) }}</span></div>
-                   @if($order->payment_method === 'cash')
+                   @if($order->payment_status === 'paid')
+                       @if($order->status === 'ready')
+                           @if($order->whatsapp_url)
+                               <a class="approve whatsapp-notify" href="{{ $order->whatsapp_url }}" target="_blank" rel="noopener">OPEN WHATSAPP · SEND READY NOTICE ↗</a>
+                           @else
+                               <div class="proof-missing">Add a customer WhatsApp number before sending a ready notice.</div>
+                           @endif
+                       @else
+                           <form method="POST" action="{{ route('staff.orders.mark-ready', $order->id) }}">
+                               @csrf
+                               <button class="approve" type="submit">MARK READY FOR PICKUP</button>
+                           </form>
+                       @endif
+                   @elseif($order->payment_method === 'cash')
                        <form method="POST" action="{{ route('staff.orders.mark-cash-received', $order->id) }}">
                            @csrf
-                           <button class="approve cash-confirm" type="submit">MARK CASH RECEIVED · COMPLETE ORDER</button>
+                           <button class="approve cash-confirm" type="submit">MARK CASH RECEIVED</button>
                        </form>
                    @elseif($order->receipt_path)
                        <a class="proof" href="{{ route('staff.orders.receipt', $order->id) }}" target="_blank" rel="noopener">View customer receipt ↗</a>
