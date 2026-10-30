@@ -1,5 +1,5 @@
-const CACHE = 'naise-v4';
-const CORE = ['/', '/manifest.webmanifest', '/icons/naise-512.png'];
+const CACHE = 'naise-v5';
+const CORE = ['/', '/manifest.webmanifest?v=5', '/icons/naise-512.png?v=5', '/icons/naise-192.png?v=5', '/icons/apple-touch-icon.png?v=5', '/icons/favicon-32.png?v=5'];
 const privatePath = path => /^\/(api|admin|staff|manage|shift|auth|demo|logout)(\/|$)/.test(path);
 
 self.addEventListener('install', event => {

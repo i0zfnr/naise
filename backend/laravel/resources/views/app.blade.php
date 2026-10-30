@@ -13,10 +13,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Naise v3">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="icon" type="image/png" sizes="512x512" href="/icons/naise-512.png?v=3">
-    <link rel="shortcut icon" href="/icons/naise-512.png?v=3">
-    <link rel="apple-touch-icon" href="/icons/naise-512.png">
+    <link rel="manifest" href="/manifest.webmanifest?v=5">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=5">
+    <link rel="shortcut icon" href="/icons/naise-512.png?v=5">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=5">
     <title>Naise Coffee v3 · Menu</title>
     @viteReactRefresh
     @vite('resources/js/main.tsx')
