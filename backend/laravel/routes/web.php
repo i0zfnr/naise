@@ -25,6 +25,8 @@ Route::post('/demo/login', [DemoAuthController::class, 'login'])
 Route::prefix('api')->group(function (): void {
     Route::post('/auth/email/code', [EmailAuthController::class, 'store'])->middleware('throttle:email-login-code');
     Route::post('/auth/email/verify', [EmailAuthController::class, 'verify'])->middleware('throttle:email-login-verify');
+    Route::post('/auth/signup', [EmailAuthController::class, 'register'])->middleware('throttle:email-login-verify');
+    Route::post('/auth/password', [EmailAuthController::class, 'password'])->middleware('throttle:customer-password');
     Route::get('/profile', [ProfileController::class, 'show'])->middleware('throttle:60,1');
     Route::put('/profile', [ProfileController::class, 'update'])->middleware('throttle:profile-update');
     Route::post('/vouchers/redeem', [ProfileController::class, 'redeem'])->middleware('throttle:voucher-redeem');

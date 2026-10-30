@@ -26,7 +26,7 @@ class EmailSignInTest extends TestCase
         Http::preventStrayRequests();
         Http::fake(['https://api.brevo.com/v3/smtp/email' => Http::response(['messageId' => 'test-id'], 201)]);
 
-        $response = $this->postJson('/api/auth/email/code', ['email' => 'Aina@gmail.com'])->assertOk()->assertJsonPath('expires_in', 600)->assertJsonMissingPath('code');
+        $response = $this->postJson('/api/auth/email/code', ['email' => 'Aina@gmail.com', 'purpose' => 'signup'])->assertOk()->assertJsonPath('expires_in', 600)->assertJsonMissingPath('code');
 
         $record = DB::table('email_login_challenges')->sole();
         $this->assertSame('aina@gmail.com', $record->email);
@@ -37,15 +37,14 @@ class EmailSignInTest extends TestCase
         Http::assertSent(fn ($request): bool => $request['to'][0]['email'] === 'aina@gmail.com' && $request->hasHeader('api-key', 'test-email-key'));
     }
 
-    public function test_valid_email_code_creates_verified_customer_and_requests_name_and_phone(): void
+    public function test_valid_signup_code_waits_for_name_and_phone_before_creating_customer(): void
     {
         [$challenge, $code] = $this->requestCode();
 
-        $this->postJson('/api/auth/email/verify', ['challenge' => $challenge, 'code' => $code])->assertOk()->assertJsonPath('needs_profile', true);
+        $this->postJson('/api/auth/email/verify', ['challenge' => $challenge, 'code' => $code])->assertOk()->assertJsonPath('needs_signup', true);
 
-        $this->assertAuthenticated();
-        $this->assertDatabaseHas('users', ['email' => 'aina@gmail.com', 'name' => '', 'whatsapp_number' => null]);
-        $this->assertNotNull(User::query()->sole()->email_verified_at);
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 0);
         $this->assertDatabaseMissing('email_login_challenges', ['used_at' => null]);
         Http::assertSentCount(1);
     }
@@ -53,7 +52,7 @@ class EmailSignInTest extends TestCase
     public function test_returning_customer_keeps_saved_name_number_and_balances(): void
     {
         $user = User::factory()->create(['email' => 'aina@gmail.com', 'name' => 'Aina', 'whatsapp_number' => '+60123456789', 'points' => 90]);
-        [$challenge, $code] = $this->requestCode();
+        [$challenge, $code] = $this->requestCode('signin');
 
         $this->postJson('/api/auth/email/verify', ['challenge' => $challenge, 'code' => $code])->assertOk()->assertJsonPath('needs_profile', false);
 
@@ -107,7 +106,7 @@ class EmailSignInTest extends TestCase
 
         $this->postJson('/api/auth/email/verify', ['challenge' => $challenge, 'code' => $code])->assertUnprocessable();
 
-        $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_resending_invalidates_the_previous_code_challenge(): void
@@ -128,7 +127,7 @@ class EmailSignInTest extends TestCase
     {
         $this->requestCode();
 
-        $this->postJson('/api/auth/email/code', ['email' => 'aina@gmail.com'])->assertTooManyRequests();
+        $this->postJson('/api/auth/email/code', ['email' => 'aina@gmail.com', 'purpose' => 'signup'])->assertTooManyRequests();
 
         Http::assertSentCount(1);
     }
@@ -138,7 +137,7 @@ class EmailSignInTest extends TestCase
         config(['services.brevo.api_key' => '']);
         Http::preventStrayRequests();
 
-        $this->postJson('/api/auth/email/code', ['email' => 'aina@gmail.com'])->assertServiceUnavailable();
+        $this->postJson('/api/auth/email/code', ['email' => 'aina@gmail.com', 'purpose' => 'signup'])->assertServiceUnavailable();
 
         $this->assertDatabaseCount('email_login_challenges', 0);
         $this->assertDatabaseCount('users', 0);
@@ -150,7 +149,7 @@ class EmailSignInTest extends TestCase
         Http::preventStrayRequests();
         Http::fake(['https://api.brevo.com/v3/smtp/email' => Http::response([], 500)]);
 
-        $this->postJson('/api/auth/email/code', ['email' => 'aina@gmail.com'])->assertServiceUnavailable();
+        $this->postJson('/api/auth/email/code', ['email' => 'aina@gmail.com', 'purpose' => 'signup'])->assertServiceUnavailable();
 
         $this->assertDatabaseCount('email_login_challenges', 0);
     }
@@ -159,7 +158,7 @@ class EmailSignInTest extends TestCase
     {
         Http::preventStrayRequests();
 
-        $this->postJson('/api/auth/email/code', ['email' => 'invalid'])->assertUnprocessable()->assertJsonValidationErrors('email');
+        $this->postJson('/api/auth/email/code', ['email' => 'invalid', 'purpose' => 'signup'])->assertUnprocessable()->assertJsonValidationErrors('email');
 
         $this->assertDatabaseCount('email_login_challenges', 0);
         Http::assertNothingSent();
@@ -181,11 +180,11 @@ class EmailSignInTest extends TestCase
         $this->getJson('/api/profile')->assertOk()->assertJsonPath('needs_profile', false);
     }
 
-    private function requestCode(): array
+    private function requestCode(string $purpose = 'signup'): array
     {
         Http::preventStrayRequests();
         Http::fake(['https://api.brevo.com/v3/smtp/email' => Http::response(['messageId' => 'test-id'], 201)]);
-        $response = $this->postJson('/api/auth/email/code', ['email' => 'aina@gmail.com'])->assertOk();
+        $response = $this->postJson('/api/auth/email/code', ['email' => 'aina@gmail.com', 'purpose' => $purpose])->assertOk();
 
         return [$response->json('challenge'), $this->sentCode()];
     }

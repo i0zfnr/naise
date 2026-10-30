@@ -145,11 +145,57 @@ function CheckoutScreen({items,total,onBack,onOrderPlaced,onSignInRequired}:{ite
  </section>
 }
 function EmailSignIn({refreshProfile}:{refreshProfile:()=>Promise<void>}){
- const [email,setEmail]=useState(''),[code,setCode]=useState(''),[challenge,setChallenge]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[remaining,setRemaining]=useState(0);
+ const [purpose,setPurpose]=useState<'signin'|'signup'>('signin');
+ const [method,setMethod]=useState<'code'|'password'>('code');
+ const [stage,setStage]=useState<'details'|'code'|'complete'>('details');
+ const [email,setEmail]=useState(''),[code,setCode]=useState(''),[challenge,setChallenge]=useState('');
+ const [name,setName]=useState(''),[phone,setPhone]=useState(''),[password,setPassword]=useState(''),[confirmation,setConfirmation]=useState('');
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[remaining,setRemaining]=useState(0);
  useEffect(()=>{if(remaining<=0)return;const timer=window.setTimeout(()=>setRemaining(remaining-1),1000);return()=>clearTimeout(timer)},[remaining]);
- async function send(){setBusy(true);setError('');try{const response=await fetch('/api/auth/email/code',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content||''},body:JSON.stringify({email})});const result=await response.json();if(!response.ok)throw new Error(response.status===429?'Please wait a minute before requesting another code.':result.errors?.email?.[0]||result.message||'Could not send the code.');setChallenge(result.challenge);setRemaining(result.resend_after);setCode('')}catch(problem){setError(problem instanceof Error?problem.message:'Could not connect. Please try again.')}finally{setBusy(false)}}
- async function submit(e:React.FormEvent){e.preventDefault();if(!challenge){await send();return}setBusy(true);setError('');try{const response=await fetch('/api/auth/email/verify',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content||''},body:JSON.stringify({challenge,code})});const result=await response.json();if(!response.ok)throw new Error(result.message||'Could not verify the code.');await refreshProfile()}catch(problem){setError(problem instanceof Error?problem.message:'Could not connect. Please try again.')}finally{setBusy(false)}}
- return <section className="email-signin profile-page"><div className="profile-title">{challenge?'CHECK YOUR EMAIL':'SIGN IN'}</div><div className="profile-orb"><Coffee size={34}/></div><p className="eyebrow">GOOD COFFEE, GOOD DAYS</p><h1>{challenge?<>Your code,<br/><em>your coffee.</em></>:<>Your Naise,<br/><em>your way.</em></>}</h1><p className="profile-copy">{challenge?<>We sent a six-digit code to <b>{email}</b>. Check your inbox or spam folder. The code expires in 10 minutes.</>:'Sign in with your Gmail or any email address. No password and no Google account permissions needed.'}</p><form className="email-signin-form" onSubmit={submit}>{challenge?<><label htmlFor="email-login-code">SIX-DIGIT CODE</label><Input key="code" id="email-login-code" className="email-code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} placeholder="000000" required autoFocus/></>:<><label htmlFor="email-login-address">EMAIL ADDRESS</label><Input key="email" id="email-login-address" type="email" autoComplete="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@gmail.com" required autoFocus/></>}{error&&<p className="edit-error" role="alert">{error}</p>}<Button type="submit" className="save-profile-button" disabled={busy||(!!challenge&&code.length!==6)}>{busy?(challenge?'VERIFYING…':'SENDING…'):challenge?'VERIFY & SIGN IN':'EMAIL ME A CODE'}<ChevronRight size={15}/></Button></form>{challenge&&<div className="email-code-actions"><button disabled={busy||remaining>0} onClick={send}>{remaining>0?`Resend code in ${remaining}s`:'Resend code'}</button><button disabled={busy} onClick={()=>{setChallenge('');setCode('');setError('')}}>Use a different email</button></div>}<p className="email-signin-note">Your name and WhatsApp number are added once, after your email is verified.</p>{document.querySelector<HTMLMetaElement>('meta[name="demo-login-enabled"]')?.content==='true'&&<a className="demo-login-link" href="/demo/login">Preview with demo customer</a>}</section>
+ function reset(nextPurpose=purpose,nextMethod=method){setPurpose(nextPurpose);setMethod(nextMethod);setStage('details');setCode('');setChallenge('');setPassword('');setConfirmation('');setError('')}
+ async function post(path:string,body:Record<string,unknown>){
+  const response=await fetch(path,{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content||''},body:JSON.stringify(body)});
+  const result=await response.json();
+  if(!response.ok)throw new Error(response.status===429?'Too many attempts. Please wait a minute and try again.':Object.values(result.errors||{}).flat()[0] as string||result.message||'Could not continue. Please try again.');
+  return result;
+ }
+ async function send(){setBusy(true);setError('');try{const result=await post('/api/auth/email/code',{email,purpose});setChallenge(result.challenge);setRemaining(result.resend_after);setCode('');setStage('code')}catch(problem){setError(problem instanceof Error?problem.message:'Could not connect. Please try again.')}finally{setBusy(false)}}
+ async function submit(event:React.FormEvent){
+  event.preventDefault();
+  if(stage==='details'&&purpose==='signup'&&method==='password'&&password!==confirmation){setError('Passwords do not match. Please enter them again.');return}
+  if(stage==='details'&&(purpose==='signup'||method==='code')){await send();return}
+  setBusy(true);setError('');
+  try{
+   if(stage==='code'){
+    const result=await post('/api/auth/email/verify',{challenge,code});
+    if(result.needs_signup){setStage('complete');setCode('');return}
+   }else if(stage==='complete'){
+    await post('/api/auth/signup',{name,whatsapp_number:phone,password:password||null,password_confirmation:confirmation});
+   }else{
+    await post('/api/auth/password',{email,password});
+   }
+   await refreshProfile();
+  }catch(problem){setError(problem instanceof Error?problem.message:'Could not connect. Please try again.')}finally{setBusy(false)}
+ }
+ const signup=purpose==='signup';
+ const profileFields=<><label htmlFor="signup-name">YOUR NAME</label><Input id="signup-name" autoComplete="name" value={name} onChange={e=>setName(e.target.value)} maxLength={120} required placeholder="What should we call you?"/><label htmlFor="signup-phone">WHATSAPP NUMBER</label><Input id="signup-phone" type="tel" autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)} maxLength={30} required placeholder="e.g. +60 12-345 6789"/></>;
+ const passwordFields=<><label htmlFor="account-password">{signup?'PASSWORD (AT LEAST 8 CHARACTERS)':'PASSWORD'}</label><Input id="account-password" type="password" autoComplete={signup?'new-password':'current-password'} value={password} onChange={e=>setPassword(e.target.value)} minLength={signup?8:undefined} maxLength={128} required/>{signup&&<><label htmlFor="account-password-confirmation">CONFIRM PASSWORD</label><Input id="account-password-confirmation" type="password" autoComplete="new-password" value={confirmation} onChange={e=>setConfirmation(e.target.value)} minLength={8} maxLength={128} required/></>}</>;
+ return <section className="email-signin profile-page">
+  <div className="profile-title">{stage==='code'?'CHECK YOUR EMAIL':stage==='complete'?'COMPLETE SIGN-UP':signup?'SIGN UP':'SIGN IN'}</div>
+  <div className="profile-orb"><Coffee size={34}/></div><p className="eyebrow">GOOD COFFEE, GOOD DAYS</p>
+  <h1>{stage==='code'?<>Your code,<br/><em>your coffee.</em></>:signup?<>Join the<br/><em>Naise family.</em></>:<>Welcome<br/><em>back to Naise.</em></>}</h1>
+  {stage==='details'&&<><div className="auth-tabs" aria-label="Account access"><button disabled={busy} aria-pressed={!signup} onClick={()=>reset('signin')}>Sign in</button><button disabled={busy} aria-pressed={signup} onClick={()=>reset('signup')}>Sign up</button></div><div className="auth-methods" aria-label="Authentication method"><button disabled={busy} aria-pressed={method==='code'} onClick={()=>reset(purpose,'code')}>Email code</button><button disabled={busy} aria-pressed={method==='password'} onClick={()=>reset(purpose,'password')}>{signup?'Email & password':'Password'}</button></div></>}
+  <p className="profile-copy">{stage==='code'?<>We sent a six-digit code to <b>{email}</b>. Check your inbox or spam folder. It expires in 10 minutes.</>:stage==='complete'?<>Your email <b>{email}</b> is verified. Confirm your details to create your account.</>:signup?'Use Gmail or any email address. We will verify your email before creating your account.':method==='code'?'Use your registered Gmail or any email address. Verify a code to sign in.':'Sign in with your registered email and password.'}</p>
+  <form className="email-signin-form" onSubmit={submit}>
+   {stage==='code'?<><label htmlFor="email-login-code">SIX-DIGIT CODE</label><Input key="code" id="email-login-code" className="email-code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} placeholder="000000" required autoFocus/></>:stage==='complete'?<>{profileFields}{method==='password'&&passwordFields}</>:<><label htmlFor="email-login-address">EMAIL ADDRESS</label><Input key="email" id="email-login-address" type="email" autoComplete="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@gmail.com" required/>{signup&&method==='password'&&profileFields}{method==='password'&&passwordFields}</>}
+   {error&&<p className="edit-error" role="alert">{error}</p>}
+   <Button type="submit" className="save-profile-button" disabled={busy||(stage==='code'&&code.length!==6)}>{busy?'PLEASE WAIT…':stage==='code'?'VERIFY CODE':stage==='complete'?'CREATE ACCOUNT':signup||method==='code'?'EMAIL ME A CODE':'SIGN IN'}<ChevronRight size={15}/></Button>
+  </form>
+  {stage==='code'&&<div className="email-code-actions"><button disabled={busy||remaining>0} onClick={send}>{remaining>0?`Resend code in ${remaining}s`:'Resend code'}</button><button disabled={busy} onClick={()=>reset()}>Use a different email</button></div>}
+  {stage==='complete'&&<div className="email-code-actions"><button disabled={busy} onClick={()=>reset()}>Start again</button></div>}
+  <p className="email-signin-note">{signup?'Your WhatsApp number lets Naise staff send your pickup update.':<>New to Naise? <button className="auth-text-link" disabled={busy} onClick={()=>reset('signup')}>Create an account</button><br/>Forgot your password? Use the email code option.</>}</p>
+  {document.querySelector<HTMLMetaElement>('meta[name="demo-login-enabled"]')?.content==='true'&&<a className="demo-login-link" href="/demo/login">Preview with demo customer</a>}
+ </section>
 }
 
 function CompleteProfile({user,refreshProfile,onSignOut,googleConnected=false}:{user:any;refreshProfile:()=>Promise<void>;onSignOut:()=>void;googleConnected?:boolean}){
