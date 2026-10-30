@@ -19,7 +19,7 @@ Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->
 Route::post('/logout', [GoogleAuthController::class, 'logout'])->name('logout');
 Route::get('/demo/login', [DemoAuthController::class, 'show'])->name('demo.login');
 Route::post('/demo/login', [DemoAuthController::class, 'login'])
-    ->middleware('throttle:admin-login')
+    ->middleware('throttle:demo-login')
     ->name('demo.login.submit');
 
 Route::prefix('api')->group(function (): void {
@@ -38,6 +38,7 @@ Route::prefix('api')->group(function (): void {
 });
 
 Route::get('/admin', [AdminAuthController::class, 'show'])->name('admin.login');
+Route::get('/admin/login', fn () => redirect()->route('admin.login'));
 Route::post('/admin/login', [AdminAuthController::class, 'login'])
     ->middleware('throttle:admin-login')
     ->name('admin.login.submit');
