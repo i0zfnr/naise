@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -56,13 +57,19 @@ class AppServiceProvider extends ServiceProvider
         }
 
         RateLimiter::for('admin-login', static function (Request $request): array {
-            $email = strtolower((string) $request->input('email'));
+            $email = strtolower(trim((string) $request->input('email')));
+            $failed = static fn (Response $response): bool => ! $response->isRedirect(route('admin.dashboard'));
+            $locked = static fn (Request $request, array $headers): Response => response()->view('admin.login', [
+                'retryAfter' => (int) ($headers['Retry-After'] ?? 60),
+                'loginEmail' => is_string($request->input('email')) ? $request->input('email') : '',
+            ], 429, $headers);
 
             return [
-                Limit::perMinute(5)->by('admin-ip:'.$request->ip()),
-                Limit::perMinute(5)->by('admin-email:'.hash('sha256', $email)),
+                Limit::perMinute(5)->by('admin-ip:'.$request->ip())->after($failed)->response($locked),
+                Limit::perMinute(5)->by('admin-email:'.hash('sha256', $email))->after($failed)->response($locked),
             ];
         });
+        RateLimiter::for('demo-login', static fn (Request $request): Limit => Limit::perMinute(5)->by('demo-login:'.$request->ip()));
 
         RateLimiter::for('store-mode', static function (Request $request): Limit {
             return Limit::perMinute(5)->by($request->ip());

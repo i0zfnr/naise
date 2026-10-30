@@ -126,9 +126,9 @@ class AdminAuthController extends Controller
             'password' => ['required', 'string', 'max:128'],
         ]);
 
-        $adminEmail = strtolower((string) config('services.naise.admin_email'));
+        $adminEmail = strtolower(trim((string) config('services.naise.admin_email')));
         $adminPasswordHash = (string) config('services.naise.admin_password_hash');
-        $emailIsValid = hash_equals($adminEmail, strtolower($credentials['email']));
+        $emailIsValid = $adminEmail !== '' && hash_equals($adminEmail, strtolower(trim($credentials['email'])));
         $passwordIsValid = $adminPasswordHash !== '' && Hash::check($credentials['password'], $adminPasswordHash);
 
         if (! $emailIsValid || ! $passwordIsValid) {
