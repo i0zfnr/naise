@@ -20,8 +20,8 @@ class BrevoTransactionalEmail
             return Http::acceptJson()->withHeaders(['api-key' => $apiKey])->connectTimeout(3)->timeout(8)->post('https://api.brevo.com/v3/smtp/email', [
                 'sender' => ['email' => $sender, 'name' => config('services.brevo.sender_name', 'Naise Coffee')],
                 'to' => [['email' => $address]],
-                'subject' => 'Your Naise Coffee sign-in code',
-                'textContent' => "Your Naise Coffee sign-in code is {$code}. It expires in 10 minutes. Do not share this code. If you did not request it, ignore this email.",
+                'subject' => 'Your Naise Coffee verification code',
+                'textContent' => "Your Naise Coffee verification code is {$code}. It expires in 10 minutes. Do not share this code. If you did not request it, ignore this email.",
                 'tags' => ['naise-email-signin'],
             ])->successful();
         } catch (Throwable $exception) {

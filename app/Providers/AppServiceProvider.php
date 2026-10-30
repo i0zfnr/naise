@@ -91,6 +91,10 @@ class AppServiceProvider extends ServiceProvider
             return [Limit::perMinute(1)->by('email-code:'.hash('sha256', $key)), Limit::perMinute(5)->by('email-code-ip:'.$request->ip())];
         });
         RateLimiter::for('email-login-verify', static fn (Request $request): Limit => Limit::perMinute(15)->by('email-verify:'.$request->ip()));
+        RateLimiter::for('customer-password', static fn (Request $request): array => [
+            Limit::perMinute(5)->by('customer-password:'.hash('sha256', strtolower((string) $request->input('email'))).'|'.$request->ip()),
+            Limit::perMinute(20)->by('customer-password-ip:'.$request->ip()),
+        ]);
 
         RateLimiter::for('payment-webhook', static function (Request $request): Limit {
             return Limit::perMinute(120)->by($request->ip());
