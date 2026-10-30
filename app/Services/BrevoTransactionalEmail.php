@@ -9,6 +9,28 @@ use Throwable;
 
 class BrevoTransactionalEmail
 {
+    public function sendLoginCode(string $address, string $code): bool
+    {
+        $apiKey = (string) config('services.brevo.api_key');
+        $sender = (string) config('services.brevo.sender_email');
+        if ($apiKey === '' || ! filter_var($sender, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+        try {
+            return Http::acceptJson()->withHeaders(['api-key' => $apiKey])->connectTimeout(3)->timeout(8)->post('https://api.brevo.com/v3/smtp/email', [
+                'sender' => ['email' => $sender, 'name' => config('services.brevo.sender_name', 'Naise Coffee')],
+                'to' => [['email' => $address]],
+                'subject' => 'Your Naise Coffee sign-in code',
+                'textContent' => "Your Naise Coffee sign-in code is {$code}. It expires in 10 minutes. Do not share this code. If you did not request it, ignore this email.",
+                'tags' => ['naise-email-signin'],
+            ])->successful();
+        } catch (Throwable $exception) {
+            Log::warning('Naise sign-in code delivery failed.', ['exception' => $exception::class]);
+
+            return false;
+        }
+    }
+
     public function sendSignInNotice(User $user, bool $newAccount): bool
     {
         $apiKey = (string) config('services.brevo.api_key');

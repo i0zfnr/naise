@@ -3,6 +3,8 @@
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\PaymentSettingsController;
 use App\Http\Controllers\Admin\StaffOrderController;
+use App\Http\Controllers\Admin\WorkspaceController;
+use App\Http\Controllers\Api\EmailAuthController;
 use App\Http\Controllers\Api\GoogleAuthController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProfileController;
@@ -21,6 +23,8 @@ Route::post('/demo/login', [DemoAuthController::class, 'login'])
     ->name('demo.login.submit');
 
 Route::prefix('api')->group(function (): void {
+    Route::post('/auth/email/code', [EmailAuthController::class, 'store'])->middleware('throttle:email-login-code');
+    Route::post('/auth/email/verify', [EmailAuthController::class, 'verify'])->middleware('throttle:email-login-verify');
     Route::get('/profile', [ProfileController::class, 'show'])->middleware('throttle:60,1');
     Route::put('/profile', [ProfileController::class, 'update'])->middleware('throttle:profile-update');
     Route::post('/vouchers/redeem', [ProfileController::class, 'redeem'])->middleware('throttle:voucher-redeem');
@@ -45,7 +49,14 @@ Route::post('/admin/store-mode/exit', [AdminAuthController::class, 'exitStoreMod
     ->name('admin.store-mode.exit');
 
 Route::middleware('admin')->group(function (): void {
-    Route::get('/admin/dashboard', [AdminAuthController::class, 'dashboard'])->name('admin.dashboard');
+    Route::get('/admin/dashboard', [WorkspaceController::class, 'index'])->name('admin.dashboard');
+    Route::get('/admin/{page}', [WorkspaceController::class, 'index'])->whereIn('page', ['menu', 'promotions', 'rewards', 'customers', 'reports'])->name('admin.workspace');
+    Route::get('/manage/{order?}', [WorkspaceController::class, 'index'])->whereNumber('order')->name('admin.manage');
+    Route::get('/shift', [WorkspaceController::class, 'index'])->name('admin.shift');
+    Route::get('/api/admin/workspace', [WorkspaceController::class, 'show'])->name('admin.workspace.data');
+    Route::put('/api/admin/workspace/{section}', [WorkspaceController::class, 'update'])->middleware('throttle:staff-actions');
+    Route::post('/api/admin/shifts', [WorkspaceController::class, 'shift'])->middleware('throttle:staff-actions');
+    Route::post('/api/admin/orders/{order}', [WorkspaceController::class, 'order'])->whereNumber('order')->middleware('throttle:staff-actions');
     Route::post('/admin/payment-settings/qr', [PaymentSettingsController::class, 'updateQr'])->middleware('throttle:staff-actions')->name('admin.payment-settings.qr');
 });
 
