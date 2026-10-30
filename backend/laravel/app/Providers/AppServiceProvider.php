@@ -84,6 +84,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(3)->by((string) ($request->user()?->id ?? $request->ip()));
         });
 
+        RateLimiter::for('email-login-code', static function (Request $request): array {
+            $email = $request->input('email');
+            $key = is_string($email) ? strtolower(trim($email)) : '';
+
+            return [Limit::perMinute(1)->by('email-code:'.hash('sha256', $key)), Limit::perMinute(5)->by('email-code-ip:'.$request->ip())];
+        });
+        RateLimiter::for('email-login-verify', static fn (Request $request): Limit => Limit::perMinute(15)->by('email-verify:'.$request->ip()));
+
         RateLimiter::for('payment-webhook', static function (Request $request): Limit {
             return Limit::perMinute(120)->by($request->ip());
         });

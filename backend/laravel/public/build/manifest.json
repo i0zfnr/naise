@@ -27,13 +27,32 @@
     "file": "assets/instrument-sans-600-normal-B9e8oLYv.woff",
     "src": "_instrument-sans-600-normal-B9e8oLYv.woff"
   },
+  "_jsx-runtime-CljSlAeM.js": {
+    "file": "assets/jsx-runtime-CljSlAeM.js",
+    "name": "jsx-runtime"
+  },
+  "resources/js/admin.tsx": {
+    "file": "assets/admin-DDm_6tkq.js",
+    "name": "admin",
+    "src": "resources/js/admin.tsx",
+    "isEntry": true,
+    "imports": [
+      "_jsx-runtime-CljSlAeM.js"
+    ],
+    "css": [
+      "assets/admin-DLlYeQNu.css"
+    ]
+  },
   "resources/js/main.tsx": {
-    "file": "assets/main-BjzBr-aS.js",
+    "file": "assets/main-DDGjFQE_.js",
     "name": "main",
     "src": "resources/js/main.tsx",
     "isEntry": true,
+    "imports": [
+      "_jsx-runtime-CljSlAeM.js"
+    ],
     "css": [
-      "assets/main-BDLwg2vq.css"
+      "assets/main-Drg3f5Mt.css"
     ]
   }
 }

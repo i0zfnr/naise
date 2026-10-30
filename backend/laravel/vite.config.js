@@ -8,7 +8,7 @@ export default defineConfig({
     plugins: [
         react(),
         laravel({
-            input: ['resources/js/main.tsx'],
+            input: ['resources/js/main.tsx', 'resources/js/admin.tsx'],
             refresh: true,
             fonts: [
                 bunny('Instrument Sans', {

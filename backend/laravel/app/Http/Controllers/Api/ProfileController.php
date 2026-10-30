@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AdminWorkspace;
+use App\Services\WhatsAppNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,7 +13,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
-    public function show(Request $request): JsonResponse
+    public function show(Request $request, AdminWorkspace $workspace, WhatsAppNumber $numbers): JsonResponse
     {
         $user = $request->user();
 
@@ -22,10 +24,18 @@ class ProfileController extends Controller
         $orderQuery = DB::table('orders')->whereNull('deleted_at')->where('user_id', $user->id)->latest();
         $orders = $request->boolean('all_orders') ? $orderQuery->get() : $orderQuery->limit(3)->get();
         $orderItems = DB::table('order_items')->whereIn('order_id', $orders->pluck('id'))->get()->groupBy('order_id');
-        $vouchers = DB::table('vouchers')->where('user_id', $user->id)->latest()->limit(3)->get();
+        $vouchers = DB::table('vouchers')->where('user_id', $user->id)->where(function ($query): void {
+            $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+        })->latest()->limit(3)->get();
 
         return response()->json([
             'authenticated' => true,
+            'needs_phone' => $numbers->normalize((string) $user->whatsapp_number) === null,
+            'needs_name' => blank($user->name),
+            'needs_profile' => blank($user->name) || $numbers->normalize((string) $user->whatsapp_number) === null,
+            'google_connected' => filled($user->google_id),
+            'stamp_card' => [...$workspace->stamps(), 'count' => (int) $user->stamp_count],
+            'tiers' => array_values(array_filter($workspace->rewards()['tiers'], fn (array $tier): bool => ! $tier['archived'])),
             'user' => ['name' => $user->name, 'email' => $user->email, 'avatar_url' => $user->avatar_url, 'whatsapp_number' => $user->whatsapp_number, 'points' => $user->points, 'available_points' => $user->points, 'total_points' => $user->total_points, 'redeemed_points' => $user->redeemed_points, 'member_since' => $user->created_at?->toDateString()],
             'points_per_free_drink' => (int) config('services.naise.points_per_free_drink'),
             'vouchers' => $vouchers,
@@ -33,7 +43,7 @@ class ProfileController extends Controller
         ]);
     }
 
-    public function update(Request $request): JsonResponse
+    public function update(Request $request, WhatsAppNumber $numbers): JsonResponse
     {
         $user = $request->user();
 
@@ -41,13 +51,17 @@ class ProfileController extends Controller
             return response()->json(['message' => 'Sign in to update your profile.'], 401);
         }
 
+        $phone = $request->input('whatsapp_number');
+        $request->merge(['whatsapp_number' => is_string($phone) ? $numbers->normalize($phone) : null]);
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'whatsapp_number' => ['required', 'string', 'max:30', 'regex:/^[+()\d\s.-]{7,30}$/'],
+            'name' => [$user->google_id ? 'sometimes' : 'required', 'string', 'max:120'],
+            'whatsapp_number' => ['required', 'string', 'regex:/^\+[1-9]\d{7,14}$/'],
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-        ]);
+        ], ['whatsapp_number.required' => 'Enter a valid WhatsApp number, including its country code (for example +60123456789).']);
 
-        $user->name = $validated['name'];
+        if (! $user->google_id) {
+            $user->name = $validated['name'];
+        }
         $user->whatsapp_number = $validated['whatsapp_number'] ?? null;
 
         if ($request->hasFile('avatar')) {

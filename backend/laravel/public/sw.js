@@ -1,1 +1,28 @@
-const CACHE="naise-v3";const CORE=["/","/manifest.webmanifest","/icons/naise-512.png"];self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE))));self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(res=>{const copy=res.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return res}).catch(()=>caches.match("/"))))});
+const CACHE = 'naise-v4';
+const CORE = ['/', '/manifest.webmanifest', '/icons/naise-512.png'];
+const privatePath = path => /^\/(api|admin|staff|manage|shift|auth|demo|logout)(\/|$)/.test(path);
+
+self.addEventListener('install', event => {
+    event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener('activate', event => {
+    event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('naise-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));
+});
+
+self.addEventListener('fetch', event => {
+    const url = new URL(event.request.url);
+    if (event.request.method !== 'GET' || url.origin !== self.location.origin || privatePath(url.pathname)) {
+        return;
+    }
+    if (event.request.mode === 'navigate') {
+        event.respondWith(fetch(event.request).catch(() => caches.match('/')));
+        return;
+    }
+    event.respondWith(caches.match(event.request).then(hit => hit || fetch(event.request).then(response => {
+        if (response.ok && !response.redirected && !response.headers.get('Cache-Control')?.includes('no-store')) {
+            event.waitUntil(caches.open(CACHE).then(cache => cache.put(event.request, response.clone())));
+        }
+        return response;
+    })));
+});

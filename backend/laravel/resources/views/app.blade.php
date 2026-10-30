@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#171716">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="google-login-enabled" content="{{ config('services.google.client_id') ? 'true' : 'false' }}">
+    <meta name="google-login-enabled" content="{{ config('services.google.client_id') && config('services.google.client_secret') ? 'true' : 'false' }}">
+    <meta name="google-login-error" content="{{ $errors->first('google') }}">
     <meta name="demo-login-enabled" content="{{ app()->environment('local') ? 'true' : 'false' }}">
     <meta name="profile-tab-enabled" content="{{ session('profile') ? 'true' : 'false' }}">
-    <meta name="demo-login-enabled" content="{{ app()->environment('local') ? 'true' : 'false' }}">
     <meta name="store-mode-enabled" content="{{ session('store_mode') ? 'true' : 'false' }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

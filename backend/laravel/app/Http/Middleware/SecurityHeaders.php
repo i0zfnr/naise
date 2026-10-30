@@ -20,7 +20,7 @@ class SecurityHeaders
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $response->headers->set('Permissions-Policy', $request->is('manage/*') ? 'camera=(self), microphone=(), geolocation=()' : 'camera=(), microphone=(), geolocation=()');
         $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
 
         if (app()->environment('production')) {
@@ -45,7 +45,7 @@ class SecurityHeaders
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000');
         }
 
-        if ($request->is('admin', 'admin/*', 'staff/*', 'api/profile', 'api/orders/*', 'api/vouchers/*')) {
+        if ($request->is('admin', 'admin/*', 'staff/*', 'manage', 'manage/*', 'shift', 'api/auth/*', 'api/admin/*', 'api/profile', 'api/orders/*', 'api/vouchers/*')) {
             $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
             $response->headers->set('Pragma', 'no-cache');
         }
