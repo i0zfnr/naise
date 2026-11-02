@@ -80,6 +80,7 @@ class OrderController extends Controller
         return response()->json([
             'message' => $paymentMethod === 'duitnow_qr' ? 'Order created. Waiting for payment provider confirmation.' : 'Order placed. Pay at the counter when you pick it up.',
             'order_id' => $orderId,
+            'order_reference' => 'NAISE-'.$orderId,
             'subtotal' => $subtotal,
             'discount_total' => $discount,
             'total' => $total,

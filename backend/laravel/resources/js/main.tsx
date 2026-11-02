@@ -29,6 +29,7 @@ function CheckoutScreen({items,total,onBack,onOrderPlaced,onSignInRequired}:{ite
  const [busy,setBusy]=useState(false);
  const [receipt,setReceipt]=useState<File|null>(null);
  const [receiptBusy,setReceiptBusy]=useState(false);
+ const [referenceCopied,setReferenceCopied]=useState(false);
  const [message,setMessage]=useState('');
  const [error,setError]=useState('');
  const [customerName,setCustomerName]=useState('');
@@ -115,6 +116,7 @@ function CheckoutScreen({items,total,onBack,onOrderPlaced,onSignInRequired}:{ite
   {placed?.payment_method==='duitnow_qr'?<div className="qr-payment-view">
    <p className="checkout-intro">Scan the merchant QR with your banking or e-wallet app.</p>
    <div className="amount-due"><small>AMOUNT DUE</small><strong>{money(placed.total)}</strong><span>Malaysian Ringgit (MYR)</span></div>
+   <div className="payment-reference-card"><small>YOUR PAYMENT REFERENCE</small><strong>{`NAISE-${placed.order_id||placed.id}`}</strong><button onClick={async()=>{try{await navigator.clipboard.writeText(`NAISE-${placed.order_id||placed.id}`);setReferenceCopied(true)}catch{setError('Copy the reference shown above into your payment description.')}}}>{referenceCopied?'Copied':'Copy reference'}</button><p>Paste this into “What’s the transfer for?” in TNG before paying. Keep the exact amount shown above. If your banking app has no description field, show your receipt to staff.</p></div>
    {qrSettings?.qr_code_url?<div className="merchant-qr"><span>SCAN TO PAY · {qrSettings.merchant_name||'NAISE COFFEE'}</span><img src={qrSettings.qr_code_url} alt="Naise merchant DuitNow QR code"/><small>Order reference #{placed.order_id}</small><a className="download-qr" href={qrSettings.qr_code_url} download>Download QR code</a></div>:<div className="qr-not-configured">Merchant QR is not configured yet. Please contact the store.</div>}
    <div className={`payment-waiting ${placed.payment_status==='paid'?'payment-confirmed':''}`}><i/>{placed.payment_status==='paid'?'Payment confirmed':placed.receipt_submitted?'Receipt submitted · waiting for staff review':'Payment pending · upload your receipt for staff review'}</div>
    <p className="payment-proof-note">A static QR does not send payment notifications to this website. The order stays pending until a connected provider confirms it or store staff verifies your receipt.</p>
