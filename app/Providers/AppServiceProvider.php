@@ -70,6 +70,10 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
         RateLimiter::for('demo-login', static fn (Request $request): Limit => Limit::perMinute(5)->by('demo-login:'.$request->ip()));
+        RateLimiter::for('companion-login', static fn (Request $request): array => [
+            Limit::perMinute(5)->by('companion-login-ip:'.$request->ip()),
+            Limit::perMinute(5)->by('companion-login-email:'.hash('sha256', strtolower((string) $request->input('email')))),
+        ]);
 
         RateLimiter::for('store-mode', static function (Request $request): Limit {
             return Limit::perMinute(5)->by($request->ip());
