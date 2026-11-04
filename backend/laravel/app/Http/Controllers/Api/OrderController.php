@@ -92,11 +92,15 @@ class OrderController extends Controller
     public function paymentSettings(): JsonResponse
     {
         $settings = DB::table('payment_settings')->first();
+        $qrCodeUrl = $settings?->qr_code_path ? Storage::disk('public')->url($settings->qr_code_path) : null;
+        if (in_array($settings?->qr_code_path, ['payment-qr/naise-tng-merchant.jpeg', 'payment-qr/AcE7af4G70toq0nQHV3Q2YzcRIXOFvk0mczBSftd.jpg'], true)) {
+            $qrCodeUrl = '/images/naise-payment-qr.png';
+        }
 
         return response()->json([
             'configured' => (bool) ($settings?->qr_code_path),
             'merchant_name' => $settings?->merchant_name,
-            'qr_code_url' => $settings?->qr_code_path ? Storage::disk('public')->url($settings->qr_code_path) : null,
+            'qr_code_url' => $qrCodeUrl,
         ]);
     }
 

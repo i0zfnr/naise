@@ -6,11 +6,25 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class OrderPaymentAndPointsTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_checkout_uses_qr_only_artwork_for_original_seller_and_preserves_custom_uploads(): void
+    {
+        $this->configureQr();
+        foreach (['payment-qr/naise-tng-merchant.jpeg', 'payment-qr/AcE7af4G70toq0nQHV3Q2YzcRIXOFvk0mczBSftd.jpg'] as $path) {
+            DB::table('payment_settings')->where('id', 1)->update(['qr_code_path' => $path]);
+            $this->getJson('/api/payment-settings')->assertOk()->assertJsonPath('qr_code_url', '/images/naise-payment-qr.png');
+        }
+
+        DB::table('payment_settings')->where('id', 1)->update(['qr_code_path' => 'payment-qr/new-seller.png']);
+        $this->getJson('/api/payment-settings')->assertOk()->assertJsonPath('qr_code_url', Storage::disk('public')->url('payment-qr/new-seller.png'));
+    }
 
     public function test_cash_order_is_confirmed_by_staff_points_are_awarded_and_delete_archives_it(): void
     {
@@ -214,7 +228,7 @@ class OrderPaymentAndPointsTest extends TestCase
         ]);
     }
 
-    private function sendSignedWebhook(array $payload, ?int $timestamp = null): \Illuminate\Testing\TestResponse
+    private function sendSignedWebhook(array $payload, ?int $timestamp = null): TestResponse
     {
         $timestamp ??= now()->timestamp;
         $body = json_encode($payload, JSON_THROW_ON_ERROR);
